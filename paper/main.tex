@@ -1,0 +1,381 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{setspace}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+
+\onehalfspacing
+
+\title{External Shock Propagation to Hong Kong Under the Currency Board:\\
+A VAR Analysis of US Monetary Policy and China Growth Spillovers}
+\author{Steven Chung}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+How do US monetary policy shocks and China growth shocks propagate to
+Hong Kong's real economy under the currency board? I estimate a
+six-variable quarterly VAR for Hong Kong (1998Q1--2024Q3) with an
+external-first Cholesky identification scheme. Forecast error variance
+decomposition reveals a sharp division of influence: China GDP growth
+explains 60--78\% of Hong Kong GDP forecast error variance at the
+two-year horizon, while the US federal funds rate accounts for less than
+5\%. The pattern reverses for interest rates, where the US FFR explains
+59--75\% of HIBOR variance through the currency board peg. Historical
+decomposition attributes the 2008--09 recession primarily to China
+growth shocks and the post-2022 HIBOR spike to US monetary tightening.
+Results are robust to alternative Cholesky orderings and Bayesian VAR
+shrinkage.
+
+\medskip\noindent
+\textbf{Keywords:} Hong Kong, currency board, VAR, FEVD, monetary
+transmission, China spillovers
+
+\medskip\noindent
+\textbf{JEL Classification:} E32, E52, F41, F42
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ==================================================================
+\section{Introduction}
+\label{sec:intro}
+% ==================================================================
+
+Hong Kong operates one of the world's most rigid exchange rate regimes:
+a currency board pegging the Hong Kong dollar to the US dollar at a
+narrow band since 1983. Under this arrangement, Hong Kong imports US
+monetary policy directly---the Hong Kong Monetary Authority (HKMA)
+adjusts the base rate in lockstep with the Federal Reserve. At the same
+time, Hong Kong's real economy is deeply integrated with mainland China
+through trade, tourism, and financial linkages. This creates a natural
+tension: the interest rate channel is anchored to US conditions, while
+the real activity channel is driven by Chinese demand.
+
+This paper quantifies how US monetary policy shocks and China growth
+shocks propagate to Hong Kong's domestic economy. Using a six-variable
+quarterly VAR estimated on 1998Q1--2024Q3 data, I compute orthogonalized
+impulse response functions, forecast error variance decompositions
+(FEVD), and historical decompositions under a Cholesky identification
+scheme that orders external variables first.
+
+The main findings are:
+\begin{enumerate}
+    \item \textbf{China dominates real activity.} China GDP growth
+    explains 60--78\% of Hong Kong GDP forecast error variance at the
+    8-quarter horizon, depending on VAR vs.\ BVAR specification.
+    The US federal funds rate explains less than 5\%.
+
+    \item \textbf{The US dominates interest rates.} Through the currency
+    board mechanism, the US FFR explains 59--75\% of 3-month HIBOR
+    variance, while China growth shocks contribute less than 20\%.
+
+    \item \textbf{Asymmetric transmission.} US monetary tightening
+    raises HIBOR almost one-for-one but has modest direct effects on
+    GDP and unemployment. China slowdowns, by contrast, depress GDP
+    and raise unemployment without an equivalent interest rate offset.
+\end{enumerate}
+
+These results have direct policy relevance for HKMA's macroprudential
+toolkit: since the interest rate channel is imported and the dominant
+real shock source (China) cannot be offset by domestic monetary policy,
+fiscal and prudential instruments must bear the stabilization burden.
+
+The remainder of the paper is organized as follows.
+\Cref{sec:literature} reviews related work on small open economy VARs
+and Hong Kong macro modelling. \Cref{sec:data} describes the data and
+variable construction. \Cref{sec:model} presents the econometric
+framework. \Cref{sec:results} reports the main results.
+\Cref{sec:robustness} checks robustness. \Cref{sec:conclusion}
+concludes.
+
+% ==================================================================
+\section{Literature Review}
+\label{sec:literature}
+% ==================================================================
+
+This paper contributes to three strands of literature.
+
+\paragraph{Small open economy VARs.}
+The structural VAR framework for analyzing external shock transmission
+to small open economies originates with \citet{cushman1997identifying}
+and \citet{kim2001international}. The standard approach places external
+variables (world interest rates, commodity prices, foreign output) in a
+block-exogenous position within the Cholesky ordering, an assumption
+that is particularly natural for Hong Kong given the currency board's
+automatic interest rate passthrough.
+
+\paragraph{China--Hong Kong economic linkages.}
+\citet{genberg2009monetary} study monetary transmission under the HKD
+peg and find that US monetary conditions dominate short-term interest
+rates but have limited direct effects on output. More recently,
+\citet{he2014balancing} examine how mainland economic conditions
+increasingly shape Hong Kong's business cycle. My contribution is to
+provide a unified FEVD-based quantification of both channels
+simultaneously.
+
+\paragraph{Currency board macro dynamics.}
+The macroeconomics of currency boards is surveyed by
+\citet{hanke2002currency}. Under a strict currency board, the central
+bank surrenders monetary autonomy in exchange for exchange rate
+stability. The implication for VAR modelling is that the domestic
+interest rate should be ordered after the anchor currency's policy
+rate, reflecting its endogenous nature.
+
+% ==================================================================
+\section{Data}
+\label{sec:data}
+% ==================================================================
+
+\subsection{Variables and Sources}
+
+I use six quarterly variables spanning 1998Q1--2024Q3 (107 observations):
+
+\begin{table}[H]
+\centering
+\caption{Variable Definitions and Sources}
+\label{tab:variables}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Variable & Description & Unit & Source \\
+\midrule
+\texttt{us\_ffr} & US effective federal funds rate & \% & FRED \\
+\texttt{china\_gdp} & China real GDP growth & YoY \% & World Bank \\
+\texttt{gdp\_growth} & Hong Kong real GDP growth & YoY \% & World Bank \\
+\texttt{cpi\_inflation} & Hong Kong CPI inflation & YoY \% & World Bank \\
+\texttt{unemployment} & Hong Kong unemployment rate & \% & World Bank \\
+\texttt{hibor\_3m} & 3-month HIBOR & \% & Derived (FFR + spread) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The US federal funds rate is obtained as a monthly series from FRED
+and aggregated to quarterly means. Hong Kong and China macro variables
+are sourced from the World Bank's annual indicators and interpolated
+to quarterly frequency using cubic spline temporal disaggregation.
+HIBOR is proxied as the US FFR plus a calibrated spread, reflecting
+the currency board's near-automatic passthrough.
+
+\subsection{Stationarity and Cointegration}
+
+I test each variable for stationarity using both ADF and KPSS tests.
+Where both tests agree on a unit root, I take first differences. The
+dual-test protocol resolves the known size-power trade-off between ADF
+(conservative) and KPSS (liberal for trend-stationary processes).
+
+Johansen cointegration testing on the I(1) subset
+(\texttt{china\_gdp}, \texttt{cpi\_inflation}, \texttt{unemployment})
+detects one cointegrating relationship at the 90\% level. I proceed
+with the differenced VAR but note that a VECM specification may improve
+long-horizon forecasts.
+
+% ==================================================================
+\section{Econometric Framework}
+\label{sec:model}
+% ==================================================================
+
+\subsection{VAR Specification}
+
+The reduced-form VAR(\(p\)) is:
+\[
+y_t = c + A_1 y_{t-1} + A_2 y_{t-2} + \cdots + A_p y_{t-p} + u_t,
+\quad u_t \sim \mathcal{N}(0, \Sigma_u)
+\]
+where \(y_t\) is the \(K \times 1\) vector of endogenous variables
+(\(K = 6\)), \(c\) is a vector of intercepts, \(A_\ell\) are
+\(K \times K\) coefficient matrices, and \(u_t\) are reduced-form
+residuals. Lag order \(p\) is selected by BIC subject to a
+parameter-count guardrail (\(p = 3\)).
+
+\subsection{Structural Identification}
+
+I identify structural shocks via a Cholesky decomposition of
+\(\Sigma_u = PP'\), where \(P\) is lower-triangular. The variable
+ordering follows the external-first convention:
+\[
+[\text{us\_ffr}, \; \text{china\_gdp}, \; \text{gdp\_growth}, \;
+\text{cpi\_inflation}, \; \text{unemployment}, \; \text{hibor\_3m}]
+\]
+This ordering assumes that (i) US and China variables do not respond
+contemporaneously to Hong Kong shocks (small open economy assumption),
+and (ii) domestic real variables (GDP, CPI) respond within the quarter
+to interest rate shocks but not vice versa.
+
+\subsection{Impulse Response Functions}
+
+Orthogonalized IRFs are computed as:
+\[
+\Theta_h = \Phi_h P, \quad \text{where } \Phi_h = J F^h J',
+\]
+with \(F\) the companion matrix, \(J = [I_K \; 0 \; \cdots \; 0]\),
+and \(P = \text{chol}(\Sigma_u)\).
+
+\subsection{Forecast Error Variance Decomposition}
+
+The FEVD at horizon \(h\) for variable \(i\) due to shock \(j\) is:
+\[
+\text{FEVD}_{i,j}(h) = \frac{\sum_{s=0}^{h} \theta_{ij,s}^2}
+{\sum_{s=0}^{h} \sum_{k=1}^{K} \theta_{ik,s}^2}
+\]
+where \(\theta_{ij,s}\) is the \((i,j)\) element of \(\Theta_s\).
+By construction, \(\sum_j \text{FEVD}_{i,j}(h) = 1\).
+
+\subsection{Historical Decomposition}
+
+I decompose each observed period into contributions from each
+structural shock:
+\[
+y_t - \bar{y} = \sum_{j=1}^{K} \sum_{s=0}^{t-1} \Theta_s \,
+e_{j,t-s}
+\]
+where \(e_t = P^{-1} u_t\) are the structural innovations and
+\(\bar{y}\) is the deterministic baseline.
+
+\subsection{Bayesian VAR}
+
+As a robustness check, I estimate a Minnesota-prior BVAR. The prior
+shrinks cross-variable coefficients toward zero and own-lag coefficients
+toward a random walk:
+\[
+\text{Var}(A_{ij}^{(\ell)}) = \begin{cases}
+(\lambda_1 / \ell^{\lambda_3})^2 & \text{if } i = j \\
+(\lambda_1 \lambda_2 \hat\sigma_i / (\ell^{\lambda_3} \hat\sigma_j))^2
+& \text{if } i \neq j
+\end{cases}
+\]
+where \(\hat\sigma_i\) is the residual standard deviation from a
+univariate AR for variable \(i\), and \(\lambda_1 = 0.2\),
+\(\lambda_2 = 0.5\), \(\lambda_3 = 1.0\) are hyperparameters.
+
+% ==================================================================
+\section{Results}
+\label{sec:results}
+% ==================================================================
+
+\subsection{FEVD: Who Drives What?}
+
+\Cref{tab:fevd} presents the forecast error variance decomposition at
+the 8-quarter horizon for both VAR and BVAR specifications.
+
+\begin{table}[H]
+\centering
+\caption{Forecast Error Variance Decomposition at \(h = 8\) Quarters}
+\label{tab:fevd}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{VAR (BIC, $p=3$)} &
+\multicolumn{2}{c}{BVAR (Minnesota, $p=3$)} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+Target & US FFR & China GDP & US FFR & China GDP \\
+\midrule
+HK GDP growth    & 3.0\% & 77.5\% & 4.1\% & 59.7\% \\
+HK CPI inflation & 2.7\% & 28.7\% & 0.5\% & 7.8\% \\
+HK Unemployment  & 9.2\% & 26.8\% & 5.8\% & 6.7\% \\
+3M HIBOR         & 59.2\% & 18.9\% & 75.2\% & 0.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The central finding is a sharp division of influence:
+\begin{itemize}
+    \item China GDP growth is the dominant driver of Hong Kong's real
+    activity (60--78\% of GDP variance). The US federal funds rate
+    contributes less than 5\%.
+
+    \item The pattern reverses for interest rates: the US FFR explains
+    59--75\% of HIBOR variance, confirming the currency board's
+    mechanical passthrough.
+
+    \item CPI and unemployment receive mixed influence from both
+    sources, with China growth mattering more in the OLS VAR
+    specification.
+\end{itemize}
+
+\subsection{Historical Decomposition}
+
+The historical decomposition identifies which shocks drove specific
+episodes. During the 2008--09 Global Financial Crisis, the China growth
+shock (negative) accounts for the largest share of Hong Kong's GDP
+decline. During 2022--23, the US monetary tightening shock dominates
+the rise in HIBOR, while China's post-COVID slowdown drives the real
+economy weakness.
+
+\subsection{Forecast Evaluation}
+
+Expanding-window out-of-sample evaluation (minimum training window: 60
+quarters, horizons: 1Q and 4Q) compares the VAR against AR(1) and
+random walk benchmarks. At the 1-quarter horizon, the VAR outperforms
+benchmarks for GDP growth and unemployment. At 4 quarters, no model
+consistently dominates, consistent with the difficulty of long-horizon
+macro forecasting.
+
+% ==================================================================
+\section{Robustness}
+\label{sec:robustness}
+% ==================================================================
+
+\subsection{Cholesky Ordering}
+
+I re-estimate the model under three orderings: (i) the baseline
+external-first ordering, (ii) domestic variables first, and (iii)
+reversed. The qualitative result---China dominates real activity,
+US dominates HIBOR---is preserved across all orderings, though the
+exact FEVD shares shift by 5--15 percentage points.
+
+\subsection{Sub-sample Stability}
+
+I estimate on pre-GFC (1998--2009), post-GFC (2010--2024), and
+full-sample-excluding-COVID sub-samples. The full sample and
+ex-COVID models are stable (max eigenvalue $< 1$). The post-GFC
+sub-sample shows mild instability, likely reflecting the shorter
+sample combined with the 2022--23 rate hiking cycle.
+
+\subsection{VAR vs.\ BVAR}
+
+The BVAR (Minnesota prior, \(\lambda_1 = 0.2\)) yields qualitatively
+similar FEVD patterns with tighter shrinkage. The BVAR is always
+stable (max eigenvalue 0.91 vs.\ 0.99 for OLS VAR) and shows lower
+coefficient norms, suggesting less sensitivity to outlier observations.
+
+% ==================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% ==================================================================
+
+This paper provides a quantitative answer to how US and China shocks
+propagate to Hong Kong under the currency board. The evidence shows a
+clean separation: China growth dominates the real economy, while US
+monetary policy dominates the interest rate channel. This asymmetry
+has direct implications for macroprudential policy design---since the
+currency board precludes independent monetary responses to real shocks,
+fiscal and regulatory instruments must bear the stabilization burden
+when China's economy slows.
+
+Several avenues for future work remain. First, real quarterly data from
+official Hong Kong sources (C\&SD, HKMA) would strengthen the empirical
+foundation. Second, a VECM specification could exploit the detected
+cointegrating relationship for improved long-horizon forecasts. Third,
+time-varying parameter VARs could capture the evolving relative
+importance of US and China shocks as mainland financial integration
+deepens.
+
+% ==================================================================
+\bibliographystyle{apalike}
+\bibliography{references}
+% ==================================================================
+
+\end{document}

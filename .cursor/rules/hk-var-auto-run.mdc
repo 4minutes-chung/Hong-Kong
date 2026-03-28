@@ -1,0 +1,46 @@
+---
+description: Auto-run the HK VAR model pipeline and tests after any code change
+alwaysApply: true
+---
+
+# Hong Kong VAR Model — Auto-Run Rules
+
+## After any edit to the model
+
+When `hk_var_model.py` is modified, run:
+
+```bash
+cd "/Users/stevenchung/Desktop/P12B_File/Hong Kong"
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type var
+```
+
+Use `--lag-criterion bic` (stable, 3 lags). AIC selects 8 lags which overparameterizes the system.
+
+## After any edit to tests
+
+When `tests/test_hk_var_model.py` or `hk_var_model.py` is modified, run:
+
+```bash
+cd "/Users/stevenchung/Desktop/P12B_File/Hong Kong"
+MPLCONFIGDIR=/tmp/mpl_cfg python -m pytest tests/test_hk_var_model.py -v --tb=short
+```
+
+All 59+ tests must pass. Fix any failures before proceeding.
+
+## After any edit to the paper
+
+When any `.tex` or `.bib` file in `paper/` is modified, recompile:
+
+```bash
+cd "/Users/stevenchung/Desktop/P12B_File/Hong Kong/paper"
+pdflatex -interaction=nonstopmode main.tex && bibtex main && pdflatex -interaction=nonstopmode main.tex && pdflatex -interaction=nonstopmode main.tex
+```
+
+## Key project facts
+
+- **Research question**: How do US monetary policy shocks and China growth shocks propagate to HK under the currency board?
+- **Data**: 107 quarters (1998Q1–2024Q3), 6 variables, real data from FRED + World Bank in `data/hk_macro_quarterly_real.csv`
+- **Cholesky ordering**: external-first `[us_ffr, china_gdp, gdp_growth, cpi_inflation, unemployment, hibor_3m]`
+- **Headline finding**: China drives ~78% of HK GDP variance; US FFR drives ~59% of HIBOR variance
+- **Outputs**: All charts/tables go to `output/`, paper in `paper/`
+- **MPLCONFIGDIR=/tmp/mpl_cfg** must prefix all python commands to avoid matplotlib cache warnings

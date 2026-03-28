@@ -1,0 +1,23 @@
+HONG KONG VAR DIAGNOSTICS REPORT
+============================================================
+
+Data sample:
+  raw_obs=107, transformed_obs=106
+  start=1998-01-01 end=2024-07-01
+
+Transforms used (ADF+KPSS confirmed):
+  - us_ffr: level (last_level=5.26)
+  - china_gdp: first_diff (last_level=4.98)
+  - gdp_growth: level (last_level=2.50)
+  - cpi_inflation: first_diff (last_level=1.73)
+  - unemployment: first_diff (last_level=2.99)
+  - hibor_3m: level (last_level=5.32)
+
+Lag-selection diagnostics:
+  criterion=bic
+  aic_lag=8, bic_lag=3
+  selected_lag=3
+  params_per_equation=19
+  n_observations=106
+  params_obs_ratio=0.179
+  guardrail_triggered=False

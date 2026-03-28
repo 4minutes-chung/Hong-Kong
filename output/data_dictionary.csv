@@ -1,0 +1,7 @@
+variable,available_in_sample,source_used,series_id,frequency,target_transform
+gdp_growth,True,local_csv,NGDPRSAXDCHKQ,quarterly,yoy_pct
+cpi_inflation,True,local_csv,CPALCY01HKQ661S,quarterly,yoy_pct
+unemployment,True,local_csv,LMUNRRTTHKQ156S,quarterly,level_pct
+hibor_3m,True,local_csv,n/a,quarterly,level_pct
+china_gdp,True,local_csv,NGDPRSAXDCCNQ,quarterly,yoy_pct
+us_ffr,True,local_csv,FEDFUNDS,monthly->quarterly,level_pct
