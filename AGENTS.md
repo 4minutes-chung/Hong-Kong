@@ -19,18 +19,18 @@
 
 ## 1. Project Overview
 
-A six-variable quarterly Vector Autoregression (VAR) model for Hong Kong, designed to quantify how external shocks — US monetary policy and China real growth — transmit to Hong Kong's domestic economy under the Linked Exchange Rate System (currency board peg to USD).
+A six-variable quarterly Vector Autoregression (VAR) model for Hong Kong, designed to quantify how external shocks — US monetary policy and China nominal activity growth — transmit to Hong Kong's domestic economy under the Linked Exchange Rate System (currency board peg to USD).
 
-### Key Findings (VAR, BIC p=3, 1998Q1–2024Q3)
+### Key Findings (VAR, BIC p=2, 1998Q1–2023Q3)
 
 | Shock source | Target | FEVD share (h=8Q) |
 |---|---|---|
-| China GDP growth | HK GDP growth | 77.5% |
-| China GDP growth | HK CPI inflation | 28.7% |
-| US FFR | HK HIBOR 3M | 59.2% |
-| US FFR | HK GDP growth | < 5% |
+| China GDP growth (nominal YoY) | HK GDP growth | 41.2% |
+| China GDP growth (nominal YoY) | HK CPI inflation | 38.1% |
+| US FFR | HK HIBOR 3M | 32.3% |
+| US FFR | HK GDP growth | 10.1% |
 
-**Headline:** China drives the real economy; the US drives interest rates through the currency board.
+**Headline:** China remains the stronger external real-activity driver in VAR, while VECM amplifies the US currency-board channel for interest rates and unemployment.
 
 ---
 
@@ -283,7 +283,7 @@ where y_t = [us_ffr, china_gdp, gdp_growth, cpi_inflation, unemployment, hibor_3
 
 - **Criteria:** AIC and BIC; BIC preferred (more parsimonious)
 - **Guardrail:** params_per_equation / n_obs < 0.80 threshold
-- **Result:** BIC selects p=3
+- **Result:** BIC selects p=2 in the latest official-data run
 
 ### Structural Analysis
 
@@ -304,15 +304,15 @@ where y_t = [us_ffr, china_gdp, gdp_growth, cpi_inflation, unemployment, hibor_3
 | Variable | Source | Raw Frequency | Transform to Quarterly | Final Transform |
 |---|---|---|---|---|
 | us_ffr | FRED (FEDFUNDS) | Monthly | Quarterly mean | Level |
-| china_gdp | World Bank (NY.GDP.MKTP.KD.ZG) | Annual | Cubic spline interpolation | First diff |
-| gdp_growth | World Bank (NY.GDP.MKTP.KD.ZG, HK) | Annual | Cubic spline interpolation | Level |
-| cpi_inflation | World Bank (FP.CPI.TOTL.ZG, HK) | Annual | Cubic spline interpolation | First diff |
-| unemployment | World Bank (SL.UEM.TOTL.ZS, HK) | Annual | Cubic spline interpolation | First diff |
-| hibor_3m | Derived: FFR + calibrated spread | — | — | Level |
+| china_gdp | FRED (CHNGDPNQDSMEI, nominal GDP) | Quarterly | YoY % change | First diff |
+| gdp_growth | C&SD table 310-30001 | Quarterly | Already quarterly YoY | Level |
+| cpi_inflation | C&SD WBR CPI_R_2_01A (where available) + WB fallback | Monthly + Annual | Official monthly YoY splice into WB spline history | First diff |
+| unemployment | C&SD table 210-06101 | M3M monthly | Quarterly mean | First diff |
+| hibor_3m | HKMA hibor.fixing API | Monthly | Quarterly mean | First diff |
 
-**Sample:** 1998Q1–2024Q3 (107 quarters raw, 106 after transforms)
+**Sample:** 1998Q1–2023Q3 (103 quarters raw, 102 after transforms at p=2)
 
-**Known limitation:** Cubic spline interpolation smooths genuine quarterly variation. For publication, use official C&SD/HKMA quarterly releases.
+**Known limitation:** CPI still partially relies on WB spline outside the official C&SD overlap window (currently spliced from 2020Q2 onward).
 
 ---
 
@@ -320,13 +320,12 @@ where y_t = [us_ffr, china_gdp, gdp_growth, cpi_inflation, unemployment, hibor_3
 
 ### Limitations
 
-1. **Interpolated data:** Annual → quarterly via cubic spline smooths short-run dynamics
-2. **HIBOR proxy:** FFR + spread mechanically inflates the us_ffr → hibor_3m FEVD share
-3. **Cointegration ignored:** Johansen detects 1 cointegrating relationship among I(1) variables; current model differences away this long-run information instead of using VECM
-4. **Residual autocorrelation:** 3 of 6 equations show significant Ljung-Box at lag=8
-5. **No structural identification beyond Cholesky:** Sign restrictions or external instruments would strengthen causal claims
-6. **Bootstrap:** Residual-only; does not account for parameter uncertainty
-7. **Post-GFC sub-sample instability:** Max eigenvalue 1.09 suggests borderline instability
+1. **CPI splice horizon:** Official C&SD CPI series currently overlaps from 2020Q2 onward; earlier history still uses WB spline.
+2. **China semantics:** `china_gdp` is nominal GDP YoY; interpretation should avoid calling it a pure real-activity shock.
+3. **Cointegration strength:** Johansen rank is high (currently 3 at 90%); VECM assumptions and deterministic choices matter.
+4. **Residual autocorrelation:** At least one equation still rejects Ljung-Box at lag=8 in latest run.
+5. **Sign restrictions:** Set-identification columns are label-by-order, not point-identified structural shocks.
+6. **TVP-VAR block:** Kalman-filter implementation is exploratory, not full Bayesian TVP posterior.
 
 ### Recommended Next Steps
 

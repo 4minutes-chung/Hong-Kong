@@ -2,7 +2,7 @@
 
 Reduced-form VAR model that forecasts core Hong Kong macroeconomic variables
 (GDP growth, CPI inflation, unemployment, HIBOR) using two external drivers
-(China GDP growth, US federal funds rate).
+(China nominal GDP YoY growth, US federal funds rate).
 
 ## Quick start
 
@@ -31,7 +31,7 @@ python hk_var_model.py --model-type auto --auto-bvar-threshold 0.18 --bvar-lambd
 | `cpi_inflation` | HK CPI inflation (YoY %) | level |
 | `unemployment` | HK unemployment rate (%) | first-differenced if non-stationary |
 | `hibor_3m` | 3-month HIBOR (%) | level |
-| `china_gdp` | China real GDP growth (YoY %) | level |
+| `china_gdp` | China nominal GDP growth (YoY %) | level |
 | `us_ffr` | US effective federal funds rate (%) | first-differenced if non-stationary |
 
 ## Pipeline

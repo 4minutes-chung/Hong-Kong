@@ -23,6 +23,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import os
+import json
 import argparse
 import numpy as np
 import pandas as pd
@@ -430,8 +431,16 @@ def assemble_data(prefer_local_real_data: bool = True) -> pd.DataFrame:
     if prefer_local_real_data and os.path.exists(local_path):
         try:
             df = _load_local_quarterly_data(local_path)
+            source_meta_path = os.path.join(DATA_DIR, "source_metadata.json")
+            source_meta = {}
+            if os.path.exists(source_meta_path):
+                try:
+                    with open(source_meta_path, "r", encoding="utf-8") as fh:
+                        source_meta = json.load(fh)
+                except Exception:
+                    source_meta = {}
             for col in df.columns:
-                source_map[col] = "local_csv"
+                source_map[col] = source_meta.get(col, "local_csv")
             print(f"[DATA] Loaded local real data -- {len(df)} quarters")
             _write_data_dictionary(df, source_map)
             csv_path = os.path.join(DATA_DIR, "hk_macro_quarterly.csv")

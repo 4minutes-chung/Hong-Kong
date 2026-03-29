@@ -4,14 +4,16 @@ Produces data/hk_macro_quarterly_real.csv.
 
 Sources:
   gdp_growth      : C&SD API table 310-30001 (quarterly YoY %)
-  cpi_inflation   : World Bank FP.CPI.TOTL.ZG annual -> cubic spline quarterly
+  cpi_inflation   : C&SD WBR CPI monthly YoY (spliced where available)
+                    + World Bank annual fallback via cubic spline
   unemployment    : C&SD API table 210-06101 (SAUR M3M -> quarterly avg)
   hibor_3m        : HKMA API hibor.fixing end-of-month (monthly -> quarterly avg)
   china_gdp       : FRED CHNGDPNQDSMEI quarterly nominal -> YoY % change
   us_ffr          : FRED FEDFUNDS monthly -> quarterly avg
 """
 
-import urllib.request, json, ssl, os
+import urllib.request, json, ssl, os, io
+from datetime import date
 import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline
@@ -143,7 +145,7 @@ def fetch_china_gdp() -> pd.DataFrame:
     return df.resample("QS").mean().dropna()
 
 
-def fetch_hk_cpi() -> pd.DataFrame:
+def fetch_hk_cpi_wb_fallback() -> pd.DataFrame:
     """World Bank FP.CPI.TOTL.ZG: annual CPI inflation -> cubic spline quarterly."""
     url = (
         "https://api.worldbank.org/v2/country/HKG/indicator/"
@@ -171,6 +173,106 @@ def fetch_hk_cpi() -> pd.DataFrame:
     return df[df.index.year <= int(years[-1])]
 
 
+def _build_recent_cpi_ecodes(max_reports: int = 84) -> list[str]:
+    """
+    Build recent monthly ecode candidates for C&SD CPI WBR reports.
+    Format: B1060001YYYYMM## where ## is month number.
+    """
+    today = date.today()
+    y, m = today.year, today.month
+    out = []
+    for _ in range(max_reports):
+        out.append(f"B1060001{y}MM{m:02d}")
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    return out
+
+
+def _fetch_cpi_mdt_for_ecode(ecode: str) -> pd.DataFrame | None:
+    """
+    Fetch Composite CPI YoY monthly values from one C&SD WBR issue.
+    Returns monthly rows with date index, or None if unavailable.
+    """
+    pcode = ecode[:8]
+    base = f"https://www.censtatd.gov.hk/wbr/{pcode}/{ecode}/data/"
+
+    try:
+        comp_url = base + "table_CPI_R_2_01A_comp.json"
+        comp = _fetch_json(comp_url)
+        theme_id = comp.get("theme_id")
+        table_id = comp.get("tb_code")
+        if not theme_id or not table_id:
+            return None
+
+        # cnds_cdm.js naming rule:
+        # MDT_<theme>_<table>_<stat_var>_<stat_pres>.csv
+        mdt_name = f"MDT_{theme_id}_{table_id}_CC_CM_1920_YoY_1dp_percent_s.csv"
+        req = urllib.request.Request(base + mdt_name, headers=_HEADERS)
+        with urllib.request.urlopen(req, timeout=20, context=_ssl_context()) as resp:
+            csv_txt = resp.read().decode("utf-8", errors="ignore")
+
+        df = pd.read_csv(io.StringIO(csv_txt))
+        if not {"CCYY", "MM", "obs_value"}.issubset(df.columns):
+            return None
+
+        df = df.dropna(subset=["MM", "obs_value"]).copy()
+        if df.empty:
+            return None
+        df["CCYY"] = df["CCYY"].astype(int)
+        df["MM"] = df["MM"].astype(int)
+        df["date"] = pd.to_datetime(
+            dict(year=df["CCYY"], month=df["MM"], day=1), errors="coerce"
+        )
+        df = df.dropna(subset=["date"])
+        df = df.set_index("date").sort_index()
+        return df[["obs_value"]].rename(columns={"obs_value": "cpi_inflation"})
+    except Exception:
+        return None
+
+
+def fetch_hk_cpi_official(max_reports: int = 84) -> pd.DataFrame:
+    """
+    Fetch official HK composite CPI YoY from recent C&SD WBR issues.
+    Combines unique monthly values across issues and returns quarterly mean.
+    """
+    pieces = []
+    for ecode in _build_recent_cpi_ecodes(max_reports=max_reports):
+        m = _fetch_cpi_mdt_for_ecode(ecode)
+        if m is not None and not m.empty:
+            pieces.append(m)
+    if not pieces:
+        return pd.DataFrame(columns=["cpi_inflation"])
+
+    monthly = pd.concat(pieces).sort_index()
+    # Duplicate month entries from overlapping issues -> keep latest value
+    monthly = monthly[~monthly.index.duplicated(keep="last")]
+    monthly = monthly[(monthly.index >= "1998-01-01")]
+    return monthly.resample("QS").mean().dropna()
+
+
+def fetch_hk_cpi() -> tuple[pd.DataFrame, str]:
+    """
+    CPI construction strategy:
+    1) Build long history from WB annual+spline
+    2) Overwrite overlapping dates with official C&SD monthly YoY aggregates
+    """
+    wb = fetch_hk_cpi_wb_fallback()
+    official = fetch_hk_cpi_official()
+    if official.empty:
+        return wb, "world_bank_spline_only"
+
+    merged = wb.copy()
+    overlap = official.index.intersection(merged.index)
+    if len(overlap):
+        merged.loc[overlap, "cpi_inflation"] = official.loc[overlap, "cpi_inflation"]
+        source = f"official_splice_{overlap.min().date()}_{overlap.max().date()}"
+    else:
+        source = "world_bank_spline_only_no_overlap"
+    return merged, source
+
+
 def build_dataset() -> pd.DataFrame:
     """Fetch all series and merge into quarterly DataFrame."""
     print("[1/6] HK GDP growth (C&SD)...")
@@ -189,13 +291,13 @@ def build_dataset() -> pd.DataFrame:
     ffr = fetch_us_ffr()
     print(f"       {len(ffr)} quarters")
 
-    print("[5/6] China GDP growth (FRED)...")
+    print("[5/6] China nominal GDP growth YoY (FRED)...")
     china = fetch_china_gdp()
     print(f"       {len(china)} quarters")
 
-    print("[6/6] HK CPI inflation (World Bank + spline)...")
-    cpi = fetch_hk_cpi()
-    print(f"       {len(cpi)} quarters")
+    print("[6/6] HK CPI inflation (C&SD splice + WB fallback)...")
+    cpi, cpi_source = fetch_hk_cpi()
+    print(f"       {len(cpi)} quarters ({cpi_source})")
 
     merged = gdp.join(cpi, how="outer")
     merged = merged.join(unemp, how="outer")
@@ -208,6 +310,19 @@ def build_dataset() -> pd.DataFrame:
     merged = merged[[c for c in col_order if c in merged.columns]]
     merged = merged.dropna()
     merged.index.name = "date"
+
+    # Sidecar metadata for reproducibility
+    meta = {
+        "gdp_growth": "C&SD table 310-30001 (quarterly YoY %)",
+        "cpi_inflation": f"CPI source={cpi_source}; C&SD WBR CPI_R_2_01A where available, else WB spline",
+        "unemployment": "C&SD table 210-06101 (SAUR/UR M3M -> quarterly mean)",
+        "hibor_3m": "HKMA hibor.fixing endperiod API (monthly -> quarterly mean)",
+        "china_gdp": "FRED CHNGDPNQDSMEI nominal quarterly GDP -> YoY %",
+        "us_ffr": "FRED FEDFUNDS monthly -> quarterly mean",
+    }
+    with open(os.path.join(DATA_DIR, "source_metadata.json"), "w", encoding="utf-8") as fh:
+        json.dump(meta, fh, indent=2)
+
     return merged
 
 
