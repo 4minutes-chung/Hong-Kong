@@ -330,7 +330,7 @@ where y_t = [us_ffr, china_gdp, gdp_growth, cpi_inflation, unemployment, hibor_3
 ### Recommended Next Steps
 
 1. **Replace interpolated data** with official C&SD quarterly GDP/CPI/unemployment and HKMA HIBOR
-2. **Implement VECM** as an alternative for long-horizon forecasts given cointegration
+2. **Promote VECM to first-class model** with explicit deterministic choices, transparent rank selection, and level-space OOS comparison versus VAR
 3. **Add sign restrictions** or external instrument identification
 4. **Time-varying parameter VAR** (TVP-VAR) to handle structural breaks formally
 5. **Factor-augmented VAR (FAVAR)** to incorporate richer information sets
@@ -357,6 +357,16 @@ python -m pytest tests/ -v
 cd paper && latexmk -pdf main.tex
 ```
 
+### Snapshot Commit Policy
+
+Commit reproducibility snapshots together with code/docs at checkpoints:
+- `output/model_diagnostics.txt`
+- `output/vecm_diagnostics.txt`
+- `output/methods_note.txt`
+- `output/fevd_table.csv`
+- `output/var_vecm_backtest_comparison.csv`
+- key figures referenced in the paper (`output/04_irf.png`, `output/07_fevd.png`, stability/backtest charts)
+
 ### CLI Arguments
 
 | Argument | Default | Description |
@@ -369,6 +379,9 @@ cd paper && latexmk -pdf main.tex
 | `--auto-bvar-threshold` | `0.18` | Params ratio above which auto switches to BVAR |
 | `--no-local-real-data` | `false` | Skip loading `data/hk_macro_quarterly_real.csv` |
 | `--cholesky-order` | external-first | Comma-separated variable ordering |
+| `--coint-rank` | `auto` | Cointegration rank (`auto` uses Johansen trace@95%) |
+| `--vecm-deterministic` | `ci` | VECM deterministic term (`n`, `co`, `ci`, `lo`, `li`) |
+| `--vecm-lag-diff` | `auto` | VECM lagged differences (default maps from selected VAR lag) |
 
 ---
 

@@ -1,7 +1,7 @@
 variable,available_in_sample,source_used,series_id,frequency,target_transform
-gdp_growth,True,local_csv,NGDPRSAXDCHKQ,quarterly,yoy_pct
-cpi_inflation,True,local_csv,CPALCY01HKQ661S,quarterly,yoy_pct
-unemployment,True,local_csv,LMUNRRTTHKQ156S,quarterly,level_pct
-hibor_3m,True,local_csv,n/a,quarterly,level_pct
-china_gdp,True,local_csv,NGDPRSAXDCCNQ,quarterly,yoy_pct
-us_ffr,True,local_csv,FEDFUNDS,monthly->quarterly,level_pct
+gdp_growth,True,C&SD table 310-30001 (quarterly YoY %),NGDPRSAXDCHKQ,quarterly,yoy_pct
+cpi_inflation,True,"CPI source=official_splice_2020-04-01_2024-10-01; C&SD WBR CPI_R_2_01A where available, else WB spline",CPALCY01HKQ661S,quarterly,yoy_pct
+unemployment,True,C&SD table 210-06101 (SAUR/UR M3M -> quarterly mean),LMUNRRTTHKQ156S,quarterly,level_pct
+hibor_3m,True,HKMA hibor.fixing endperiod API (monthly -> quarterly mean),n/a,quarterly,level_pct
+china_gdp,True,FRED CHNGDPNQDSMEI nominal quarterly GDP -> YoY %,CHNGDPNQDSMEI,quarterly,yoy_pct
+us_ffr,True,FRED FEDFUNDS monthly -> quarterly mean,FEDFUNDS,monthly->quarterly,level_pct

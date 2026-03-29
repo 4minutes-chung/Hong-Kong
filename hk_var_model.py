@@ -200,13 +200,15 @@ def fit_bvar_minnesota(df: pd.DataFrame, lags: int,
 class VECMResultsWrapper:
     """Wrapper around statsmodels VECM results to match the VAR result interface."""
 
-    def __init__(self, vecm_result, df, k_ar_diff, coint_rank):
+    def __init__(self, vecm_result, df, k_ar_diff, coint_rank, deterministic="ci"):
         self._vecm = vecm_result
         self._df = df
         self.k_ar = k_ar_diff + 1  # total lag order in levels
+        self.k_ar_diff = k_ar_diff
         self.nobs = vecm_result.nobs
         self.model_label = f"vecm_r{coint_rank}"
         self.coint_rank = coint_rank
+        self.deterministic = deterministic
 
         k = df.shape[1]
         p_diff = k_ar_diff
@@ -245,12 +247,11 @@ class VECMResultsWrapper:
 
         self.sigma_u = np.cov(self.resid, rowvar=False)
 
-        if hasattr(vecm_result, 'const'):
-            self.intercept = vecm_result.const.flatten()[:k]
-        elif hasattr(vecm_result, 'det_coef_coint'):
-            self.intercept = np.zeros(k)
-        else:
-            self.intercept = np.zeros(k)
+        self.intercept = np.zeros(k)
+        if hasattr(vecm_result, "const") and vecm_result.const is not None:
+            const_arr = np.asarray(vecm_result.const).reshape(-1)
+            if const_arr.size >= k:
+                self.intercept = const_arr[:k]
 
         n = self.nobs
         k_params = k * (1 + k * p)
@@ -262,19 +263,39 @@ class VECMResultsWrapper:
         y_last = np.asarray(y_last)
         k = self.coefs.shape[1]
         p = self.k_ar
+        if y_last.shape[0] < p:
+            raise ValueError(
+                f"VECM forecast needs at least {p} level lags; got {y_last.shape[0]}"
+            )
         history = y_last.copy()
         out = np.zeros((steps, k))
         for h in range(steps):
             y_hat = self.intercept.copy()
             for lag in range(1, p + 1):
-                idx = min(lag, len(history))
-                y_hat += self.coefs[lag - 1] @ history[-idx]
+                y_hat += self.coefs[lag - 1] @ history[-lag]
             out[h] = y_hat
             history = np.vstack([history, y_hat])
         return out
 
 
-def fit_vecm(df_raw: pd.DataFrame, lags_diff: int, coint_rank: int):
+def _is_vecm_result(result) -> bool:
+    return isinstance(result, VECMResultsWrapper)
+
+
+def _vecm_rank_or_default(coint_rank: int | None) -> int:
+    """Resolve VECM rank: None -> 1 (legacy default); 0 is preserved (no cointegration)."""
+    if coint_rank is None:
+        return 1
+    return int(coint_rank)
+
+
+def fit_vecm(
+    df_raw: pd.DataFrame,
+    lags_diff: int,
+    coint_rank: int,
+    deterministic: str = "ci",
+    verbose: bool = True,
+):
     """
     Fit a VECM on the RAW (levels) data.
     lags_diff: number of lagged differences (p-1 in Johansen notation).
@@ -283,29 +304,39 @@ def fit_vecm(df_raw: pd.DataFrame, lags_diff: int, coint_rank: int):
     """
     from statsmodels.tsa.vector_ar.vecm import VECM
 
-    model = VECM(df_raw, k_ar_diff=lags_diff, coint_rank=coint_rank,
-                 deterministic="ci")
+    model = VECM(
+        df_raw,
+        k_ar_diff=lags_diff,
+        coint_rank=coint_rank,
+        deterministic=deterministic,
+    )
     result = model.fit()
 
-    print(f"\n=== VECM Estimation (r={coint_rank}, lag_diff={lags_diff}) ===")
-    print(f"Obs: {result.nobs}, Coint rank: {coint_rank}")
+    if verbose:
+        print(
+            f"\n=== VECM Estimation (r={coint_rank}, lag_diff={lags_diff}, "
+            f"det='{deterministic}') ==="
+        )
+        print(f"Obs: {result.nobs}, Coint rank: {coint_rank}")
 
-    # Print cointegrating vectors
-    beta = result.beta
-    alpha = result.alpha
-    print(f"\nCointegrating vectors (beta, {beta.shape[0]}x{beta.shape[1]}):")
-    for j in range(coint_rank):
-        vec = beta[:, j]
-        labels = list(df_raw.columns)
-        terms = [f"{v:.3f}*{l}" for v, l in zip(vec, labels)]
-        print(f"  beta_{j+1}: {' + '.join(terms)}")
+        # Print cointegrating vectors
+        beta = result.beta
+        alpha = result.alpha
+        print(f"\nCointegrating vectors (beta, {beta.shape[0]}x{beta.shape[1]}):")
+        for j in range(coint_rank):
+            vec = beta[:, j]
+            labels = list(df_raw.columns)
+            terms = [f"{v:.3f}*{l}" for v, l in zip(vec, labels)]
+            print(f"  beta_{j+1}: {' + '.join(terms)}")
 
-    print(f"\nAdjustment coefficients (alpha, {alpha.shape[0]}x{alpha.shape[1]}):")
-    for i, label in enumerate(df_raw.columns):
-        vals = alpha[i, :]
-        print(f"  {label:18s}: {np.array2string(vals, precision=4)}")
+        print(f"\nAdjustment coefficients (alpha, {alpha.shape[0]}x{alpha.shape[1]}):")
+        for i, label in enumerate(df_raw.columns):
+            vals = alpha[i, :]
+            print(f"  {label:18s}: {np.array2string(vals, precision=4)}")
 
-    wrapper = VECMResultsWrapper(result, df_raw, lags_diff, coint_rank)
+    wrapper = VECMResultsWrapper(
+        result, df_raw, lags_diff, coint_rank, deterministic=deterministic
+    )
     return wrapper
 
 
@@ -531,7 +562,12 @@ def stationarity_tests(df: pd.DataFrame) -> pd.DataFrame:
     return res
 
 
-def johansen_cointegration_test(df_raw: pd.DataFrame, adf_res: pd.DataFrame):
+def johansen_cointegration_test(
+    df_raw: pd.DataFrame,
+    adf_res: pd.DataFrame,
+    det_order: int = 0,
+    k_ar_diff: int = 2,
+):
     """
     Audit fix #5: test for cointegration among I(1) variables.
     If cointegration exists, note it in diagnostics.
@@ -547,21 +583,71 @@ def johansen_cointegration_test(df_raw: pd.DataFrame, adf_res: pd.DataFrame):
         return None
 
     try:
-        joh = coint_johansen(subset, det_order=0, k_ar_diff=2)
+        joh = coint_johansen(subset, det_order=det_order, k_ar_diff=k_ar_diff)
         trace_stats = joh.lr1
-        crit_90 = joh.cvt[:, 0]
-        n_coint = int(np.sum(trace_stats > crit_90))
+        max_rank = len(i1_vars) - 1
+        rank_trace_90 = int(np.sum(trace_stats > joh.cvt[:, 0]))
+        rank_trace_95 = int(np.sum(trace_stats > joh.cvt[:, 1]))
+        rank_trace_99 = int(np.sum(trace_stats > joh.cvt[:, 2]))
+        rank_eig_90 = int(np.sum(joh.lr2 > joh.cvm[:, 0]))
+        rank_eig_95 = int(np.sum(joh.lr2 > joh.cvm[:, 1]))
+        rank_eig_99 = int(np.sum(joh.lr2 > joh.cvm[:, 2]))
+        n_coint = min(rank_trace_95, max_rank)
         print(f"\n=== Johansen Cointegration Test (I(1) subset: {i1_vars}) ===")
+        print(f"  Settings: det_order={det_order}, k_ar_diff={k_ar_diff}")
         print(f"  Trace statistics : {np.round(trace_stats, 2)}")
-        print(f"  90% critical vals: {np.round(crit_90, 2)}")
-        print(f"  Cointegration rank (90% level): {n_coint}")
+        print(f"  90% critical vals: {np.round(joh.cvt[:, 0], 2)}")
+        print(f"  95% critical vals: {np.round(joh.cvt[:, 1], 2)}")
+        print(
+            "  Rank summary:"
+            f" trace(90/95/99)=({rank_trace_90}/{rank_trace_95}/{rank_trace_99}),"
+            f" maxeig(90/95/99)=({rank_eig_90}/{rank_eig_95}/{rank_eig_99})"
+        )
+        print(f"  Auto rank (trace@95%, capped): {n_coint}")
         if n_coint > 0:
             print(f"  WARNING: {n_coint} cointegrating relationship(s) detected.")
             print(f"  A VECM may be preferred for long-horizon forecasts.")
-        return {"i1_vars": i1_vars, "rank": n_coint, "trace": trace_stats.tolist()}
+        return {
+            "i1_vars": i1_vars,
+            "rank": n_coint,
+            "rank_trace_90": rank_trace_90,
+            "rank_trace_95": rank_trace_95,
+            "rank_trace_99": rank_trace_99,
+            "rank_eig_90": rank_eig_90,
+            "rank_eig_95": rank_eig_95,
+            "rank_eig_99": rank_eig_99,
+            "trace": trace_stats.tolist(),
+            "trace_crit_90": joh.cvt[:, 0].tolist(),
+            "trace_crit_95": joh.cvt[:, 1].tolist(),
+            "maxeig": joh.lr2.tolist(),
+            "maxeig_crit_95": joh.cvm[:, 1].tolist(),
+            "det_order": det_order,
+            "k_ar_diff": k_ar_diff,
+        }
     except Exception as e:
         print(f"\n[COINT] Johansen test failed: {e}")
         return None
+
+
+def resolve_coint_rank(coint_rank_arg, coint_result: dict | None) -> int | None:
+    """
+    Resolve user rank input.
+    - 'auto' (or None) uses trace@95% rank from Johansen output.
+    - explicit int uses that rank, capped to feasible bounds.
+    """
+    if coint_result is None:
+        return None
+    i1_count = len(coint_result.get("i1_vars", []))
+    max_rank = max(i1_count - 1, 0)
+    if max_rank == 0:
+        return None
+
+    if coint_rank_arg is None or str(coint_rank_arg).lower() == "auto":
+        return int(min(max(coint_result.get("rank", 0), 0), max_rank))
+
+    rank = int(coint_rank_arg)
+    rank = max(0, min(rank, max_rank))
+    return rank
 
 
 def apply_transforms(df: pd.DataFrame, adf_res: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
@@ -747,13 +833,22 @@ def _cholesky_irf(coefs, sigma_u, periods: int = 16):
 
 def estimate_model(df: pd.DataFrame, lags: int, model_type: str = "var",
                    bvar_lambda1: float = 0.2,
-                   df_raw: pd.DataFrame = None, coint_rank: int = None):
+                   df_raw: pd.DataFrame = None, coint_rank: int = None,
+                   vecm_deterministic: str = "ci", vecm_lag_diff: int | None = None):
     if model_type == "vecm":
         if df_raw is None:
             raise ValueError("VECM requires df_raw (levels data)")
-        rank = coint_rank if coint_rank else 1
-        result = fit_vecm(df_raw, lags_diff=max(lags - 1, 1), coint_rank=rank)
-        estimator_name = f"VECM (rank={rank}, lag_diff={max(lags-1,1)})"
+        rank = _vecm_rank_or_default(coint_rank)
+        lag_diff = max(lags - 1, 1) if vecm_lag_diff is None else max(int(vecm_lag_diff), 1)
+        result = fit_vecm(
+            df_raw,
+            lags_diff=lag_diff,
+            coint_rank=rank,
+            deterministic=vecm_deterministic,
+        )
+        estimator_name = (
+            f"VECM (rank={rank}, lag_diff={lag_diff}, det='{vecm_deterministic}')"
+        )
     elif model_type == "bvar":
         result = fit_bvar_minnesota(df, lags, lambda1=bvar_lambda1)
         estimator_name = f"BVAR (Minnesota prior, lambda1={bvar_lambda1:.3f})"
@@ -778,6 +873,12 @@ def estimate_model(df: pd.DataFrame, lags: int, model_type: str = "var",
     eig_vals = np.linalg.eigvals(companion)
     max_eig = np.abs(eig_vals).max()
     print(f"\nMax eigenvalue modulus: {max_eig:.4f} -> {'STABLE' if max_eig < 1 else 'UNSTABLE'}")
+    if model_type == "vecm":
+        k = df.shape[1]
+        if getattr(result, "coint_rank", 0) >= max(k - 1, 1):
+            print("  [WARN] Cointegration rank is near full rank; check deterministic term and lag_diff.")
+        if max_eig >= 1:
+            print("  [HINT] Try higher --vecm-lag-diff or alternative --vecm-deterministic.")
 
     resid_arr = result.resid.values if hasattr(result.resid, "values") else result.resid
     print("\n--- Ljung-Box Residual Autocorrelation (lag=8) ---")
@@ -1124,14 +1225,17 @@ def compute_historical_decomposition(result, df: pd.DataFrame, var_names: list):
                 contributions[t, :, j] += Theta[:, j] * structural_shocks[s, j]
 
     arr = df.values
-    data_for_decomp = arr[p:]
+    # Align decomposition window to residual sample length. This keeps VAR and
+    # VECM paths consistent even when effective sample starts differ.
+    start_idx = max(len(df) - T, 0)
+    data_for_decomp = arr[start_idx:start_idx + T]
     intercept = getattr(result, "intercept", None)
     if intercept is None:
         base = np.mean(data_for_decomp, axis=0)
     else:
         base = intercept
 
-    dates = df.index[p:p + T]
+    dates = df.index[start_idx:start_idx + T]
 
     return {
         "contributions": contributions,
@@ -1345,6 +1449,11 @@ def robustness_ordering_permutations(df_est, lags, model_type, bvar_lambda1,
     Re-estimate IRFs and FEVD under alternative Cholesky orderings.
     Returns a summary of how FEVD shares change.
     """
+    if model_type == "vecm":
+        print(
+            "[NOTE] Ordering robustness uses VAR on transformed data only; "
+            "primary VECM estimates are on levels — compare to Cholesky FEVD as a VAR-space sensitivity check."
+        )
     orderings = {
         "baseline (ext-first)": list(var_names),
         "domestic-first": [v for v in var_names if v not in ["us_ffr", "china_gdp"]] +
@@ -1428,6 +1537,11 @@ def _plot_ordering_robustness(results, base_var_names):
 
 def robustness_subsample(df_est, lags, model_type, bvar_lambda1, var_names):
     """Estimate on sub-samples and compare IRF norms."""
+    if model_type == "vecm":
+        print(
+            "[NOTE] Sub-sample stability uses VAR on transformed data; "
+            "not the VECM level specification."
+        )
     T = len(df_est)
     mid = T // 2
     gfc_end_idx = None
@@ -1512,7 +1626,9 @@ def _plot_subsample_stability(coef_norms):
 
 def rolling_backtest(df: pd.DataFrame, lags: int, forecast_horizon: int = 4,
                      min_train: int = 60, model_type: str = "var",
-                     bvar_lambda1: float = 0.2) -> pd.DataFrame:
+                     bvar_lambda1: float = 0.2, df_raw: pd.DataFrame = None,
+                     coint_rank: int | None = None, vecm_deterministic: str = "ci",
+                     vecm_lag_diff: int | None = None) -> pd.DataFrame:
     T = len(df)
     cols = list(df.columns)
     n_vars = len(cols)
@@ -1525,9 +1641,24 @@ def rolling_backtest(df: pd.DataFrame, lags: int, forecast_horizon: int = 4,
         try:
             if model_type == "bvar":
                 mod = fit_bvar_minnesota(train, lags, lambda1=bvar_lambda1)
+                var_fc = mod.forecast(train.values[-lags:], steps=forecast_horizon)
+            elif model_type == "vecm":
+                if df_raw is None:
+                    raise ValueError("rolling_backtest(vecm) requires df_raw")
+                train_raw = df_raw.loc[train.index]
+                rank = _vecm_rank_or_default(coint_rank)
+                lag_diff = max(lags - 1, 1) if vecm_lag_diff is None else max(int(vecm_lag_diff), 1)
+                mod = fit_vecm(
+                    train_raw,
+                    lags_diff=lag_diff,
+                    coint_rank=rank,
+                    deterministic=vecm_deterministic,
+                    verbose=False,
+                )
+                var_fc = mod.forecast(train_raw.values[-lags:], steps=forecast_horizon)
             else:
                 mod = VAR(train).fit(lags)
-            var_fc = mod.forecast(train.values[-lags:], steps=forecast_horizon)
+                var_fc = mod.forecast(train.values[-lags:], steps=forecast_horizon)
         except Exception:
             continue
 
@@ -1553,10 +1684,171 @@ def rolling_backtest(df: pd.DataFrame, lags: int, forecast_horizon: int = 4,
                     "rw_fc": rw_fc[h, j],
                 })
 
+    if not records:
+        return pd.DataFrame(
+            columns=[
+                "origin", "horizon", "variable", "actual", "var_fc", "ar_fc", "rw_fc"
+            ]
+        )
     return pd.DataFrame(records)
 
 
+def _invert_from_origin(fc_t: np.ndarray, cols: list[str], transforms: dict, origin_levels: np.ndarray):
+    """Invert transformed forecasts using origin-specific levels (for OOS comparability)."""
+    fc_level = fc_t.copy()
+    for j, col in enumerate(cols):
+        if transforms.get(col, {}).get("transform") == "first_diff":
+            fc_level[:, j] = origin_levels[j] + np.cumsum(fc_t[:, j])
+    return fc_level
+
+
+def model_backtest_summary_level(
+    model_name: str,
+    df_est: pd.DataFrame,
+    df_raw: pd.DataFrame,
+    lags: int,
+    transforms: dict,
+    forecast_horizon: int = 4,
+    min_train: int = 60,
+    bvar_lambda1: float = 0.2,
+    coint_rank: int | None = None,
+    vecm_deterministic: str = "ci",
+    vecm_lag_diff: int | None = None,
+) -> pd.DataFrame:
+    cols = list(df_est.columns)
+    records = []
+    T = len(df_est)
+    for t in range(min_train, T - forecast_horizon):
+        train = df_est.iloc[:t]
+        block_est = df_est.iloc[t:t + forecast_horizon]
+        block_dates = block_est.index
+        try:
+            if model_name == "bvar":
+                mod = fit_bvar_minnesota(train, lags, lambda1=bvar_lambda1)
+                fc_t = mod.forecast(train.values[-lags:], steps=forecast_horizon)
+            elif model_name == "vecm":
+                train_raw = df_raw.loc[train.index]
+                rank = _vecm_rank_or_default(coint_rank)
+                lag_diff = max(lags - 1, 1) if vecm_lag_diff is None else max(int(vecm_lag_diff), 1)
+                mod = fit_vecm(
+                    train_raw,
+                    lags_diff=lag_diff,
+                    coint_rank=rank,
+                    deterministic=vecm_deterministic,
+                    verbose=False,
+                )
+                # VECM is fit on levels; forecasts match df_raw units (no diff inversion).
+                fc_t = mod.forecast(train_raw.values[-lags:], steps=forecast_horizon)
+            else:
+                mod = VAR(train).fit(lags)
+                fc_t = mod.forecast(train.values[-lags:], steps=forecast_horizon)
+        except Exception:
+            continue
+
+        origin_levels = df_raw.loc[train.index[-1], cols].values
+        if model_name == "vecm":
+            fc_level = fc_t.copy()
+        else:
+            fc_level = _invert_from_origin(fc_t, cols, transforms, origin_levels)
+        actual_level = df_raw.loc[block_dates, cols].values
+
+        for h in range(forecast_horizon):
+            for j, col in enumerate(cols):
+                err = fc_level[h, j] - actual_level[h, j]
+                records.append(
+                    {
+                        "model": model_name,
+                        "origin": train.index[-1],
+                        "horizon": h + 1,
+                        "variable": col,
+                        "actual_level": actual_level[h, j],
+                        "forecast_level": fc_level[h, j],
+                        "err": err,
+                        "abs_err": abs(err),
+                        "sq_err": err ** 2,
+                    }
+                )
+
+    bt = pd.DataFrame(records)
+    if bt.empty:
+        return bt
+    summary = (
+        bt.groupby(["model", "variable", "horizon"], as_index=False)
+        .agg(
+            n_windows=("err", "size"),
+            RMSE=("sq_err", lambda x: float(np.sqrt(np.mean(x)))),
+            MAE=("abs_err", "mean"),
+        )
+    )
+    return summary
+
+
+def compare_var_vecm_backtest_level(
+    df_est: pd.DataFrame,
+    df_raw: pd.DataFrame,
+    lags: int,
+    transforms: dict,
+    coint_rank: int | None,
+    vecm_deterministic: str,
+    vecm_lag_diff: int | None,
+) -> pd.DataFrame:
+    var_summary = model_backtest_summary_level(
+        "var", df_est, df_raw, lags, transforms
+    )
+    vecm_summary = model_backtest_summary_level(
+        "vecm",
+        df_est,
+        df_raw,
+        lags,
+        transforms,
+        coint_rank=coint_rank,
+        vecm_deterministic=vecm_deterministic,
+        vecm_lag_diff=vecm_lag_diff,
+    )
+    if var_summary.empty or vecm_summary.empty:
+        return pd.DataFrame()
+
+    merged = var_summary.merge(
+        vecm_summary,
+        on=["variable", "horizon"],
+        suffixes=("_VAR", "_VECM"),
+    )
+    merged["RMSE_winner"] = np.where(
+        merged["RMSE_VAR"] <= merged["RMSE_VECM"], "VAR", "VECM"
+    )
+    merged["MAE_winner"] = np.where(
+        merged["MAE_VAR"] <= merged["MAE_VECM"], "VAR", "VECM"
+    )
+    keep_cols = [
+        "variable",
+        "horizon",
+        "n_windows_VAR",
+        "RMSE_VAR",
+        "RMSE_VECM",
+        "MAE_VAR",
+        "MAE_VECM",
+        "RMSE_winner",
+        "MAE_winner",
+    ]
+    out_df = merged[keep_cols].sort_values(["variable", "horizon"]).reset_index(drop=True)
+    path = os.path.join(OUTPUT_DIR, "var_vecm_backtest_comparison.csv")
+    out_df.to_csv(path, index=False)
+    print(f"[TABLE] VAR vs VECM backtest comparison -> {path}")
+    return out_df
+
+
 def evaluate_backtest(bt: pd.DataFrame):
+    if bt.empty:
+        print("\n=== Out-of-Sample Forecast Evaluation (RMSE) ===")
+        print("No valid rolling windows were estimated for this specification.")
+        return pd.DataFrame(
+            columns=[
+                "variable", "horizon", "n_windows",
+                "RMSE_VAR", "RMSE_AR", "RMSE_RW",
+                "MAE_VAR", "MAE_AR", "MAE_RW",
+            ]
+        )
+
     bt["var_err"] = bt["var_fc"] - bt["actual"]
     bt["ar_err"] = bt["ar_fc"] - bt["actual"]
     bt["rw_err"] = bt["rw_fc"] - bt["actual"]
@@ -1653,17 +1945,24 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
     Produce baseline + shock scenarios.
     All outputs are in LEVEL space (transforms inverted).
     df_raw is used for level-space history plotting (audit v2 fix #2).
+    VECM is fit on levels; conditioning lags must match df_raw, not df_est.
     """
-    last_obs = df.values[-lags:]
     cols = list(df.columns)
+    levels_df = df_raw if df_raw is not None else df
+    if _is_vecm_result(result):
+        last_obs = levels_df.values[-lags:]
+    else:
+        last_obs = df.values[-lags:]
 
-    # Baseline forecast in transformed space
+    # Baseline forecast (transformed space for VAR/BVAR; levels for VECM)
     base_fc_t = result.forecast(last_obs, steps=horizon)
     fc_dates = pd.date_range(df.index[-1] + pd.offsets.QuarterBegin(1),
                              periods=horizon, freq="QS")
 
-    # Invert to levels
-    base_fc_lev = _invert_transforms(base_fc_t, cols, transforms)
+    if _is_vecm_result(result):
+        base_fc_lev = base_fc_t.copy()
+    else:
+        base_fc_lev = _invert_transforms(base_fc_t, cols, transforms)
     scenarios = {"baseline": pd.DataFrame(base_fc_lev, index=fc_dates, columns=cols)}
 
     # Audit fix #7: parameter-uncertainty bootstrap
@@ -1678,7 +1977,10 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
             step = result.forecast(path[-lags:], steps=1)[0] + shock
             path = np.vstack([path, step])
         fc_t = path[-horizon:]
-        boot_paths[b] = _invert_transforms(fc_t, cols, transforms)
+        if _is_vecm_result(result):
+            boot_paths[b] = fc_t.copy()
+        else:
+            boot_paths[b] = _invert_transforms(fc_t, cols, transforms)
 
     scenarios["baseline_lo"] = pd.DataFrame(
         np.percentile(boot_paths, 10, axis=0), index=fc_dates, columns=cols)
@@ -1698,8 +2000,12 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
     shock1 = _shock_in_level_space(
         shock1, ffr_idx, ffr_baseline_level + 1.5, transforms, "us_ffr")
     weak_fc_t = result.forecast(shock1, steps=horizon)
-    scenarios["weak_external"] = pd.DataFrame(
-        _invert_transforms(weak_fc_t, cols, transforms), index=fc_dates, columns=cols)
+    if _is_vecm_result(result):
+        scenarios["weak_external"] = pd.DataFrame(
+            weak_fc_t.copy(), index=fc_dates, columns=cols)
+    else:
+        scenarios["weak_external"] = pd.DataFrame(
+            _invert_transforms(weak_fc_t, cols, transforms), index=fc_dates, columns=cols)
 
     # Global easing: China GDP growth rises 1pp, FFR falls 1pp
     shock2 = _shock_in_level_space(
@@ -1707,8 +2013,12 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
     shock2 = _shock_in_level_space(
         shock2, ffr_idx, ffr_baseline_level - 1.0, transforms, "us_ffr")
     ease_fc_t = result.forecast(shock2, steps=horizon)
-    scenarios["global_easing"] = pd.DataFrame(
-        _invert_transforms(ease_fc_t, cols, transforms), index=fc_dates, columns=cols)
+    if _is_vecm_result(result):
+        scenarios["global_easing"] = pd.DataFrame(
+            ease_fc_t.copy(), index=fc_dates, columns=cols)
+    else:
+        scenarios["global_easing"] = pd.DataFrame(
+            _invert_transforms(ease_fc_t, cols, transforms), index=fc_dates, columns=cols)
 
     hist_df = df_raw if df_raw is not None else df
     _plot_scenarios(hist_df, scenarios, cols, horizon, transforms)
@@ -1815,7 +2125,7 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
 
     note += f"""
 3. ESTIMATION
-   Estimator  : {"OLS equation-by-equation" if model_used == "var" else "Minnesota-prior Bayesian VAR"}
+   Estimator  : {"OLS equation-by-equation" if model_used == "var" else ("VECM (Johansen system)" if model_used == "vecm" else "Minnesota-prior Bayesian VAR")}
    AIC        : {f"{result.aic:.2f}" if np.isfinite(result.aic) else "n/a"}
    BIC        : {f"{result.bic:.2f}" if np.isfinite(result.bic) else "n/a"}
    Stability  : All eigenvalues inside the unit circle (max modulus < 1)
@@ -1825,7 +2135,7 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
 """
     if coint_result and coint_result["rank"] > 0:
         note += f"   I(1) variables tested: {coint_result['i1_vars']}\n"
-        note += f"   Cointegration rank (90%): {coint_result['rank']}\n"
+        note += f"   Cointegration rank (trace test, 95% rule): {coint_result['rank']}\n"
         note += f"   NOTE: VECM may improve long-horizon forecasts.\n"
     else:
         note += f"   No cointegration detected (or insufficient I(1) variables).\n"
@@ -1850,8 +2160,14 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
    - Scenario shocks defined in level space for interpretability.
 """
     if diff_vars:
-        note += f"   - Variables differenced for estimation: {diff_vars}\n"
-        note += f"     Forecasts are cumulated back to levels for output.\n"
+        if model_used == "vecm":
+            note += (
+                f"   - VAR-style transforms above apply to the reduced-form VAR baseline; "
+                f"the VECM is estimated on levels ({', '.join(df.columns)}).\n"
+            )
+        else:
+            note += f"   - Variables differenced for estimation: {diff_vars}\n"
+            note += f"     Forecasts are cumulated back to levels for output.\n"
 
     note += "\n================================================================================\n"
     path = os.path.join(OUTPUT_DIR, "methods_note.txt")
@@ -1861,7 +2177,7 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
     print(note)
 
 
-def write_diagnostics_report(df_raw, df_est, transforms, lag_diag):
+def write_diagnostics_report(df_raw, df_est, transforms, lag_diag, coint_result=None, vecm_spec=None):
     lines = [
         "HONG KONG VAR DIAGNOSTICS REPORT",
         "=" * 60, "",
@@ -1882,10 +2198,83 @@ def write_diagnostics_report(df_raw, df_est, transforms, lag_diag):
         f"  params_obs_ratio={lag_diag['params_obs_ratio']:.3f}",
         f"  guardrail_triggered={lag_diag['guardrail_triggered']}",
     ])
+    if coint_result:
+        lines.extend([
+            "", "Cointegration diagnostics (Johansen):",
+            f"  i1_vars={coint_result.get('i1_vars', [])}",
+            f"  det_order={coint_result.get('det_order')}, k_ar_diff={coint_result.get('k_ar_diff')}",
+            (
+                "  rank_trace(90/95/99)="
+                f"{coint_result.get('rank_trace_90')}/"
+                f"{coint_result.get('rank_trace_95')}/"
+                f"{coint_result.get('rank_trace_99')}"
+            ),
+            (
+                "  rank_maxeig(90/95/99)="
+                f"{coint_result.get('rank_eig_90')}/"
+                f"{coint_result.get('rank_eig_95')}/"
+                f"{coint_result.get('rank_eig_99')}"
+            ),
+            f"  selected_rank_auto(trace@95%)={coint_result.get('rank')}",
+        ])
+    if vecm_spec:
+        lines.extend([
+            "", "VECM specification:",
+            f"  coint_rank={vecm_spec.get('coint_rank')}",
+            f"  lag_diff={vecm_spec.get('lag_diff')}",
+            f"  deterministic={vecm_spec.get('deterministic')}",
+        ])
     out = os.path.join(OUTPUT_DIR, "model_diagnostics.txt")
     with open(out, "w") as f:
         f.write("\n".join(lines))
     print(f"[NOTE] Diagnostics report -> {out}")
+
+
+def write_vecm_diagnostics_report(result, var_names: list[str], coint_result: dict | None):
+    """Write VECM-specific diagnostics and practical remediation hints."""
+    lines = [
+        "HONG KONG VECM DIAGNOSTICS REPORT",
+        "=" * 60,
+        "",
+        f"deterministic={getattr(result, 'deterministic', 'n/a')}",
+        f"coint_rank={getattr(result, 'coint_rank', 'n/a')}",
+        f"lag_diff={getattr(result, 'k_ar_diff', 'n/a')}",
+        f"nobs={getattr(result, 'nobs', 'n/a')}",
+    ]
+    resid_arr = result.resid.values if hasattr(result.resid, "values") else result.resid
+    lines.extend(["", "Ljung-Box p-values (lag=8):"])
+    flagged = []
+    for i, col in enumerate(var_names):
+        lb = acorr_ljungbox(resid_arr[:, i], lags=[8], return_df=True)
+        pval = float(lb["lb_pvalue"].iloc[0])
+        lines.append(f"  {col}: {pval:.4f}")
+        if pval <= 0.05:
+            flagged.append(col)
+    lines.extend(["", "Warnings:"])
+    k = len(var_names)
+    rank = int(getattr(result, "coint_rank", 0))
+    if rank >= max(k - 1, 1):
+        lines.append("  - Rank is near full rank; check deterministic term and lag_diff.")
+    if flagged:
+        lines.append(
+            "  - Residual autocorrelation detected in: "
+            + ", ".join(flagged)
+            + ". Consider higher lag_diff or different deterministic term."
+        )
+    if coint_result:
+        lines.append(
+            "  - Johansen ranks (trace 90/95/99): "
+            f"{coint_result.get('rank_trace_90')}/"
+            f"{coint_result.get('rank_trace_95')}/"
+            f"{coint_result.get('rank_trace_99')}"
+        )
+    if len(lines) <= 13:
+        lines.append("  - No major VECM-specific warnings.")
+
+    path = os.path.join(OUTPUT_DIR, "vecm_diagnostics.txt")
+    with open(path, "w") as f:
+        f.write("\n".join(lines))
+    print(f"[NOTE] VECM diagnostics -> {path}")
 
 
 # ============================================================
@@ -1905,8 +2294,24 @@ def parse_args():
     parser.add_argument("--cholesky-order", type=str, default=None,
                         help="Comma-separated variable ordering for Cholesky IRFs. "
                              "Default: external-first (us_ffr,china_gdp,...)")
-    parser.add_argument("--coint-rank", type=int, default=None,
-                        help="Cointegration rank for VECM. Auto-detected from Johansen if not set.")
+    parser.add_argument(
+        "--coint-rank",
+        type=str,
+        default="auto",
+        help="Cointegration rank for VECM. Use integer or 'auto' (trace@95%).",
+    )
+    parser.add_argument(
+        "--vecm-deterministic",
+        choices=["n", "co", "ci", "lo", "li"],
+        default="ci",
+        help="Deterministic term for VECM (statsmodels convention).",
+    )
+    parser.add_argument(
+        "--vecm-lag-diff",
+        type=int,
+        default=None,
+        help="VECM lagged differences. Default: max(VAR_lag-1, 1).",
+    )
     return parser.parse_args()
 
 
@@ -1946,7 +2351,6 @@ def main():
     print("  STEP 2: PRE-ESTIMATION DIAGNOSTICS")
     print("=" * 70)
     adf_res = stationarity_tests(df_raw)
-    coint_result = johansen_cointegration_test(df_raw, adf_res)
     df_est, transforms = apply_transforms(df_raw, adf_res)
     plot_correlation(df_est)
     granger_causality_diagnostics(df_est)
@@ -1956,7 +2360,12 @@ def main():
         max_params_ratio=args.max_params_ratio,
     )
     lags = max(lags, 1)
-    write_diagnostics_report(df_raw, df_est, transforms, lag_diag)
+
+    # Johansen settings are tied to VECM lag mapping for transparent rank choice.
+    vecm_lag_diff = max(lags - 1, 1) if args.vecm_lag_diff is None else max(int(args.vecm_lag_diff), 1)
+    coint_result = johansen_cointegration_test(
+        df_raw, adf_res, det_order=0, k_ar_diff=vecm_lag_diff
+    )
 
     if args.model_type == "vecm":
         model_used = "vecm"
@@ -1966,9 +2375,15 @@ def main():
         model_used = args.model_type
     print(f"[DIAG] Model selection: requested={args.model_type}, using={model_used.upper()}")
 
-    coint_rank = args.coint_rank
-    if coint_rank is None and coint_result and coint_result["rank"] > 0:
-        coint_rank = coint_result["rank"]
+    coint_rank = resolve_coint_rank(args.coint_rank, coint_result)
+    vecm_spec = {
+        "coint_rank": coint_rank,
+        "lag_diff": vecm_lag_diff,
+        "deterministic": args.vecm_deterministic,
+    }
+    write_diagnostics_report(
+        df_raw, df_est, transforms, lag_diag, coint_result=coint_result, vecm_spec=vecm_spec
+    )
 
     # --- 3. Estimation ---
     print("\n" + "=" * 70)
@@ -1976,7 +2391,11 @@ def main():
     print("=" * 70)
     result = estimate_model(df_est, lags, model_type=model_used,
                             bvar_lambda1=args.bvar_lambda1,
-                            df_raw=df_raw, coint_rank=coint_rank)
+                            df_raw=df_raw, coint_rank=coint_rank,
+                            vecm_deterministic=args.vecm_deterministic,
+                            vecm_lag_diff=vecm_lag_diff)
+    if model_used == "vecm":
+        write_vecm_diagnostics_report(result, list(df_est.columns), coint_result)
 
     # --- 3b. FEVD + Historical Decomposition ---
     print("\n" + "=" * 70)
@@ -2042,8 +2461,13 @@ def main():
     if model_used != "vecm" and coint_rank and coint_rank > 0:
         print("\n--- VECM Robustness Comparison ---")
         try:
-            vecm_result = fit_vecm(df_raw, lags_diff=max(lags - 1, 1),
-                                   coint_rank=min(coint_rank, 3))
+            _ld = vecm_lag_diff if vecm_lag_diff is not None else max(lags - 1, 1)
+            vecm_result = fit_vecm(
+                df_raw,
+                lags_diff=_ld,
+                coint_rank=min(_vecm_rank_or_default(coint_rank), 3),
+                deterministic=args.vecm_deterministic,
+            )
             vecm_companion = _companion_matrix(vecm_result.coefs)
             vecm_max_eig = np.abs(np.linalg.eigvals(vecm_companion)).max()
             print(f"  VECM max eigenvalue: {vecm_max_eig:.4f}")
@@ -2073,8 +2497,28 @@ def main():
     print("  STEP 4: OUT-OF-SAMPLE VALIDATION")
     print("=" * 70)
     bt = rolling_backtest(df_est, lags, forecast_horizon=4, min_train=60,
-                          model_type=model_used, bvar_lambda1=args.bvar_lambda1)
+                          model_type=model_used, bvar_lambda1=args.bvar_lambda1,
+                          df_raw=df_raw, coint_rank=coint_rank,
+                          vecm_deterministic=args.vecm_deterministic,
+                          vecm_lag_diff=vecm_lag_diff)
     bt_summary = evaluate_backtest(bt)
+
+    # Explicit VAR vs VECM level-space forecast comparison for paper/reporting.
+    try:
+        compare_df = compare_var_vecm_backtest_level(
+            df_est=df_est,
+            df_raw=df_raw,
+            lags=lags,
+            transforms=transforms,
+            coint_rank=coint_rank,
+            vecm_deterministic=args.vecm_deterministic,
+            vecm_lag_diff=vecm_lag_diff,
+        )
+        if not compare_df.empty:
+            print("\n=== VAR vs VECM OOS Comparison (Level-space RMSE) ===")
+            print(compare_df.head(12).to_string(index=False))
+    except Exception as e:
+        print(f"[WARN] VAR vs VECM OOS comparison failed: {e}")
 
     # --- 5. Scenario forecasting (in LEVEL space) ---
     print("\n" + "=" * 70)
