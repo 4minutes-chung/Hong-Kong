@@ -398,3 +398,8 @@ cd paper && latexmk -pdf main.tex
 | Mar 2026 | Econometric evaluation | B+ grade; data limitations prevent A |
 | Mar 2026 | Auto-run rule | Pipeline/test/LaTeX auto-execution on file changes |
 | Mar 2026 | AGENTS.md + git init | Final documentation and version control |
+| Mar 2026 | **Real data upgrade** | 5/6 vars from official sources (C&SD, HKMA, FRED). Only CPI still interpolated. 103 quarterly obs 1998Q1-2023Q3 |
+| Mar 2026 | **VECM implementation** | Vector Error Correction Model with Johansen cointegration (rank 3-4). VECM reveals US channel 2-3x stronger than Cholesky VAR |
+| Mar 2026 | **Sign restrictions** | Theory-consistent sign identification (US monetary tightening, China growth shock). 80/5000 accepted draws |
+| Mar 2026 | **TVP-VAR** | Kalman filter with forgetting factor lambda=0.99. Shows deepening China coefficient post-GFC |
+| Mar 2026 | **Paper revision v2** | Complete rewrite with VECM, sign restrictions, TVP-VAR results. Targeting Pacific Economic Review / J. Asian Economics |

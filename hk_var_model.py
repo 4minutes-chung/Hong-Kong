@@ -191,6 +191,122 @@ def fit_bvar_minnesota(df: pd.DataFrame, lags: int,
 
 
 # ============================================================
+# VECM — Vector Error Correction Model
+# ============================================================
+
+class VECMResultsWrapper:
+    """Wrapper around statsmodels VECM results to match the VAR result interface."""
+
+    def __init__(self, vecm_result, df, k_ar_diff, coint_rank):
+        self._vecm = vecm_result
+        self._df = df
+        self.k_ar = k_ar_diff + 1  # total lag order in levels
+        self.nobs = vecm_result.nobs
+        self.model_label = f"vecm_r{coint_rank}"
+        self.coint_rank = coint_rank
+
+        k = df.shape[1]
+        p_diff = k_ar_diff
+
+        # Build VAR-representation coefficients from VECM parameters
+        # VECM: Delta y_t = alpha beta' y_{t-1} + Gamma_1 Delta y_{t-1} + ... + c + u_t
+        # VAR(p) in levels: y_t = A_1 y_{t-1} + ... + A_p y_{t-p} + c + u_t
+        alpha = vecm_result.alpha  # (k, r)
+        beta = vecm_result.beta   # (k, r) — cointegrating vectors
+        Pi = alpha @ beta.T       # (k, k) — long-run impact matrix
+
+        gamma = []
+        if hasattr(vecm_result, 'gamma') and vecm_result.gamma is not None:
+            g = vecm_result.gamma
+            for i in range(p_diff):
+                gamma.append(g[:, i * k:(i + 1) * k])
+
+        # Convert VECM to VAR in levels
+        # A_1 = I + Pi + Gamma_1
+        # A_i = Gamma_i - Gamma_{i-1}  for i=2,...,p-1
+        # A_p = -Gamma_{p-1}
+        p = p_diff + 1
+        coefs = np.zeros((p, k, k))
+        if p_diff == 0:
+            coefs[0] = np.eye(k) + Pi
+        else:
+            coefs[0] = np.eye(k) + Pi + gamma[0]
+            for i in range(1, p_diff):
+                coefs[i] = gamma[i] - gamma[i - 1]
+            coefs[p - 1] = -gamma[-1]
+
+        self.coefs = coefs
+
+        resid = vecm_result.resid
+        self.resid = resid if isinstance(resid, np.ndarray) else resid.values
+
+        self.sigma_u = np.cov(self.resid, rowvar=False)
+
+        if hasattr(vecm_result, 'const'):
+            self.intercept = vecm_result.const.flatten()[:k]
+        elif hasattr(vecm_result, 'det_coef_coint'):
+            self.intercept = np.zeros(k)
+        else:
+            self.intercept = np.zeros(k)
+
+        n = self.nobs
+        k_params = k * (1 + k * p)
+        ll = -0.5 * n * k * np.log(2 * np.pi) - 0.5 * n * np.log(max(np.linalg.det(self.sigma_u), 1e-20)) - 0.5 * n * k
+        self.aic = -2 * ll + 2 * k_params
+        self.bic = -2 * ll + k_params * np.log(n)
+
+    def forecast(self, y_last, steps):
+        y_last = np.asarray(y_last)
+        k = self.coefs.shape[1]
+        p = self.k_ar
+        history = y_last.copy()
+        out = np.zeros((steps, k))
+        for h in range(steps):
+            y_hat = self.intercept.copy()
+            for lag in range(1, p + 1):
+                idx = min(lag, len(history))
+                y_hat += self.coefs[lag - 1] @ history[-idx]
+            out[h] = y_hat
+            history = np.vstack([history, y_hat])
+        return out
+
+
+def fit_vecm(df_raw: pd.DataFrame, lags_diff: int, coint_rank: int):
+    """
+    Fit a VECM on the RAW (levels) data.
+    lags_diff: number of lagged differences (p-1 in Johansen notation).
+    coint_rank: number of cointegrating relationships.
+    Returns a VECMResultsWrapper with the same interface as VAR results.
+    """
+    from statsmodels.tsa.vector_ar.vecm import VECM
+
+    model = VECM(df_raw, k_ar_diff=lags_diff, coint_rank=coint_rank,
+                 deterministic="ci")
+    result = model.fit()
+
+    print(f"\n=== VECM Estimation (r={coint_rank}, lag_diff={lags_diff}) ===")
+    print(f"Obs: {result.nobs}, Coint rank: {coint_rank}")
+
+    # Print cointegrating vectors
+    beta = result.beta
+    alpha = result.alpha
+    print(f"\nCointegrating vectors (beta, {beta.shape[0]}x{beta.shape[1]}):")
+    for j in range(coint_rank):
+        vec = beta[:, j]
+        labels = list(df_raw.columns)
+        terms = [f"{v:.3f}*{l}" for v, l in zip(vec, labels)]
+        print(f"  beta_{j+1}: {' + '.join(terms)}")
+
+    print(f"\nAdjustment coefficients (alpha, {alpha.shape[0]}x{alpha.shape[1]}):")
+    for i, label in enumerate(df_raw.columns):
+        vals = alpha[i, :]
+        print(f"  {label:18s}: {np.array2string(vals, precision=4)}")
+
+    wrapper = VECMResultsWrapper(result, df_raw, lags_diff, coint_rank)
+    return wrapper
+
+
+# ============================================================
 # SECTION 1 — DATA ASSEMBLY
 # ============================================================
 
@@ -619,8 +735,15 @@ def _cholesky_irf(coefs, sigma_u, periods: int = 16):
 
 
 def estimate_model(df: pd.DataFrame, lags: int, model_type: str = "var",
-                   bvar_lambda1: float = 0.2):
-    if model_type == "bvar":
+                   bvar_lambda1: float = 0.2,
+                   df_raw: pd.DataFrame = None, coint_rank: int = None):
+    if model_type == "vecm":
+        if df_raw is None:
+            raise ValueError("VECM requires df_raw (levels data)")
+        rank = coint_rank if coint_rank else 1
+        result = fit_vecm(df_raw, lags_diff=max(lags - 1, 1), coint_rank=rank)
+        estimator_name = f"VECM (rank={rank}, lag_diff={max(lags-1,1)})"
+    elif model_type == "bvar":
         result = fit_bvar_minnesota(df, lags, lambda1=bvar_lambda1)
         estimator_name = f"BVAR (Minnesota prior, lambda1={bvar_lambda1:.3f})"
     else:
@@ -699,6 +822,167 @@ def _plot_irf_cholesky(irfs, var_names):
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[CHART] IRFs (Cholesky) -> {path}")
+
+
+# ============================================================
+# SECTION 3a — SIGN RESTRICTIONS
+# ============================================================
+
+def _random_orthogonal(k: int, rng: np.random.Generator) -> np.ndarray:
+    """Draw a random orthogonal matrix via QR of a random Gaussian."""
+    Z = rng.standard_normal((k, k))
+    Q, R = np.linalg.qr(Z)
+    Q = Q @ np.diag(np.sign(np.diag(R)))
+    return Q
+
+
+def sign_restriction_irfs(coefs, sigma_u, sign_table: dict, var_names: list,
+                           periods: int = 20, n_draws: int = 2000,
+                           n_accept: int = 500, horizon_check: int = 0,
+                           seed: int = 44):
+    """
+    Identify structural shocks via sign restrictions (Rubio-Ramirez et al. 2010).
+
+    sign_table: dict mapping shock_name -> dict of {variable: sign} where
+                sign is +1 or -1, applied at horizon_check.
+    Returns: accepted_irfs (n_accept, periods+1, k, k) array, or fewer if
+             not enough draws satisfy the restrictions.
+    """
+    p, k, _ = coefs.shape
+    P = np.linalg.cholesky(sigma_u)
+    companion = _companion_matrix(coefs)
+
+    J = np.zeros((k, k * p))
+    J[:k, :k] = np.eye(k)
+
+    # Pre-compute reduced-form MA matrices up to horizon_check
+    Phi = [np.eye(k)]
+    power = np.eye(k * p)
+    for h in range(1, max(horizon_check + 1, periods + 1)):
+        power = power @ companion
+        Phi.append(J @ power @ J.T)
+
+    shock_names = list(sign_table.keys())
+    n_shocks = len(shock_names)
+
+    # Build sign matrix: (n_shocks, k) with +1/-1/0
+    S = np.zeros((n_shocks, k))
+    for si, sname in enumerate(shock_names):
+        for vname, sign in sign_table[sname].items():
+            if vname in var_names:
+                vi = var_names.index(vname)
+                S[si, vi] = sign
+
+    rng = np.random.default_rng(seed)
+    accepted = []
+
+    for _ in range(n_draws):
+        Q = _random_orthogonal(k, rng)
+        A0 = P @ Q  # candidate impact matrix
+
+        # Compute IRF at horizon_check
+        Theta_h = Phi[horizon_check] @ A0
+
+        # Check sign restrictions
+        ok = True
+        for si in range(n_shocks):
+            for vi in range(k):
+                if S[si, vi] != 0:
+                    if S[si, vi] * Theta_h[vi, si] < 0:
+                        ok = False
+                        break
+            if not ok:
+                break
+
+        if ok:
+            # Compute full IRFs for this rotation
+            irfs = np.zeros((periods + 1, k, k))
+            irfs[0] = A0.copy()
+            for h in range(1, periods + 1):
+                if h < len(Phi):
+                    irfs[h] = Phi[h] @ A0
+                else:
+                    power_h = np.linalg.matrix_power(companion, h)
+                    irfs[h] = (J @ power_h @ J.T) @ A0
+            accepted.append(irfs)
+            if len(accepted) >= n_accept:
+                break
+
+    print(f"[SIGN] {len(accepted)}/{n_draws} draws accepted ({len(accepted)/n_draws*100:.1f}%)")
+    if not accepted:
+        return None
+    return np.array(accepted)
+
+
+def default_sign_table():
+    """
+    Theory-consistent sign restrictions for HK under the currency board.
+    Shock 1 (US monetary tightening): FFR up, HIBOR up, GDP down, unemployment up
+    Shock 2 (China growth positive):  China GDP up, GDP up, CPI up
+    """
+    return {
+        "us_monetary": {
+            "us_ffr": +1,
+            "hibor_3m": +1,
+            "gdp_growth": -1,
+            "unemployment": +1,
+        },
+        "china_growth": {
+            "china_gdp": +1,
+            "gdp_growth": +1,
+            "cpi_inflation": +1,
+        },
+    }
+
+
+def plot_sign_restriction_irfs(accepted_irfs, var_names, shock_names=None):
+    """Plot median and 68% bands from sign-restriction accepted IRFs."""
+    if accepted_irfs is None or len(accepted_irfs) == 0:
+        print("[SIGN] No accepted draws to plot.")
+        return
+
+    n_acc, H1, k, _ = accepted_irfs.shape
+    periods = H1 - 1
+
+    if shock_names is None:
+        shock_names = [f"shock_{j}" for j in range(k)]
+    n_shocks = min(len(shock_names), k)
+
+    hk_targets = [v for v in ["gdp_growth", "cpi_inflation", "unemployment", "hibor_3m"]
+                  if v in var_names]
+    n_rows = len(hk_targets)
+
+    fig, axes = plt.subplots(n_rows, n_shocks, figsize=(5 * n_shocks, 3 * n_rows))
+    if n_rows == 1:
+        axes = axes.reshape(1, -1)
+    if n_shocks == 1:
+        axes = axes.reshape(-1, 1)
+
+    x = np.arange(periods + 1)
+    for row, target in enumerate(hk_targets):
+        ti = var_names.index(target)
+        for col in range(n_shocks):
+            ax = axes[row, col]
+            draws = accepted_irfs[:, :, ti, col]
+            median = np.median(draws, axis=0)
+            lo = np.percentile(draws, 16, axis=0)
+            hi = np.percentile(draws, 84, axis=0)
+            ax.plot(x, median, color="steelblue", linewidth=1.5)
+            ax.fill_between(x, lo, hi, alpha=0.25, color="steelblue")
+            ax.axhline(0, color="grey", linewidth=0.5)
+            if row == 0:
+                ax.set_title(shock_names[col], fontsize=10)
+            if col == 0:
+                ax.set_ylabel(target, fontsize=9)
+            ax.tick_params(labelsize=7)
+
+    fig.suptitle(f"Sign-Restriction IRFs (median + 68% band, {n_acc} draws)",
+                 fontsize=12, y=1.01)
+    fig.tight_layout()
+    path = os.path.join(OUTPUT_DIR, "11_sign_restriction_irf.png")
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[CHART] Sign-restriction IRFs -> {path}")
 
 
 # ============================================================
@@ -893,6 +1177,143 @@ def plot_historical_decomposition(hd: dict, df_raw: pd.DataFrame = None):
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"[CHART] Historical decomposition -> {path}")
+
+
+# ============================================================
+# SECTION 3b2 — TVP-VAR (Time-Varying Parameters)
+# ============================================================
+
+def tvp_var_kalman(df: pd.DataFrame, lags: int = 1,
+                   forgetting_factor: float = 0.99):
+    """
+    TVP-VAR via Kalman filter with forgetting-factor state evolution.
+
+    The state vector theta_t = vec([c, A_1, ..., A_p]) evolves as:
+        theta_t = theta_{t-1} + eta_t,  Q_t = (1/lambda - 1) * P_{t|t-1}
+    where lambda is the forgetting factor (0.95-0.99 typical).
+
+    Returns dict with time-varying coefficients, fitted values, and residuals.
+    """
+    arr = df.values
+    T, k = arr.shape
+    n_coef = 1 + k * lags  # per equation: intercept + k*lags
+
+    # Build regressors: [1, y_{t-1}, ..., y_{t-p}]
+    Y = arr[lags:]  # (T-p, k)
+    n = len(Y)
+    X = np.ones((n, n_coef))
+    for t in range(n):
+        for lag in range(1, lags + 1):
+            X[t, 1 + (lag - 1) * k: 1 + lag * k] = arr[lags + t - lag]
+
+    # Initialize state per equation with OLS
+    lam = forgetting_factor
+    theta = np.zeros((n, k, n_coef))  # time-varying coefficients
+    resid = np.zeros((n, k))
+
+    for eq in range(k):
+        y_eq = Y[:, eq]
+
+        # OLS initialization on first 20% of sample
+        init_n = max(n_coef + 5, n // 5)
+        X_init, y_init = X[:init_n], y_eq[:init_n]
+        beta_ols = np.linalg.lstsq(X_init, y_init, rcond=None)[0]
+        resid_init = y_init - X_init @ beta_ols
+        sigma2 = np.var(resid_init) + 1e-8
+
+        # Kalman filter
+        beta_t = beta_ols.copy()
+        P_t = np.eye(n_coef) * sigma2 * 10  # diffuse prior
+
+        for t in range(n):
+            x_t = X[t]
+
+            # Prediction
+            P_pred = P_t / lam  # forgetting factor state evolution
+
+            # Update
+            f_t = x_t @ P_pred @ x_t + sigma2
+            K_t = P_pred @ x_t / f_t
+            y_hat = x_t @ beta_t
+            v_t = y_eq[t] - y_hat
+
+            beta_t = beta_t + K_t * v_t
+            P_t = P_pred - np.outer(K_t, K_t) * f_t
+
+            # Update sigma2 with exponential smoothing
+            sigma2 = 0.99 * sigma2 + 0.01 * v_t ** 2
+
+            theta[t, eq, :] = beta_t
+            resid[t, eq] = v_t
+
+    return {
+        "theta": theta,       # (n, k, n_coef) time-varying coefficients
+        "resid": resid,        # (n, k)
+        "dates": df.index[lags:],
+        "var_names": list(df.columns),
+        "lags": lags,
+        "forgetting_factor": lam,
+    }
+
+
+def plot_tvp_var(tvp_result: dict):
+    """Plot time-varying coefficients for key relationships."""
+    theta = tvp_result["theta"]
+    dates = tvp_result["dates"]
+    var_names = tvp_result["var_names"]
+    k = len(var_names)
+    lags = tvp_result["lags"]
+
+    # Plot selected coefficient paths
+    # Interest: us_ffr -> hibor_3m, china_gdp -> gdp_growth
+    pairs = []
+    for resp_name, shock_name in [
+        ("hibor_3m", "us_ffr"), ("gdp_growth", "china_gdp"),
+        ("gdp_growth", "us_ffr"), ("unemployment", "china_gdp"),
+    ]:
+        if resp_name in var_names and shock_name in var_names:
+            resp_idx = var_names.index(resp_name)
+            shock_idx = var_names.index(shock_name)
+            coef_idx = 1 + shock_idx  # lag-1 coefficient
+            pairs.append((resp_name, shock_name, resp_idx, coef_idx))
+
+    if not pairs:
+        return
+
+    fig, axes = plt.subplots(len(pairs), 1, figsize=(12, 3 * len(pairs)), sharex=True)
+    if len(pairs) == 1:
+        axes = [axes]
+
+    for i, (resp, shock, resp_idx, coef_idx) in enumerate(pairs):
+        ax = axes[i]
+        coef_path = theta[:, resp_idx, coef_idx]
+        ax.plot(dates, coef_path, color="steelblue", linewidth=1.2)
+        ax.axhline(0, color="grey", linewidth=0.5, linestyle="--")
+        ax.set_title(f"TVP: {shock} -> {resp} (lag-1 coefficient)", fontsize=10)
+        ax.set_ylabel("Coefficient")
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+        ax.grid(alpha=0.3)
+
+        # Shade GFC and COVID
+        for label, start, end, color in [
+            ("GFC", "2008-07-01", "2009-07-01", "salmon"),
+            ("COVID", "2020-01-01", "2020-10-01", "lightyellow"),
+        ]:
+            try:
+                ax.axvspan(pd.Timestamp(start), pd.Timestamp(end),
+                           alpha=0.2, color=color, label=label)
+            except Exception:
+                pass
+        if i == 0:
+            ax.legend(fontsize=8)
+
+    fig.suptitle("Time-Varying Parameter VAR — Key Coefficient Paths",
+                 fontsize=12, y=1.01)
+    fig.tight_layout()
+    path = os.path.join(OUTPUT_DIR, "12_tvp_var.png")
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[CHART] TVP-VAR coefficient paths -> {path}")
 
 
 # ============================================================
@@ -1458,13 +1879,15 @@ def parse_args():
     parser.add_argument("--max-lags", type=int, default=8)
     parser.add_argument("--max-params-ratio", type=float, default=0.8)
     parser.add_argument("--no-local-real-data", action="store_true")
-    parser.add_argument("--model-type", choices=["var", "bvar", "auto"], default="auto")
+    parser.add_argument("--model-type", choices=["var", "bvar", "vecm", "auto"], default="auto")
     parser.add_argument("--bvar-lambda1", type=float, default=0.2,
                         help="Minnesota prior overall tightness.")
     parser.add_argument("--auto-bvar-threshold", type=float, default=0.18)
     parser.add_argument("--cholesky-order", type=str, default=None,
                         help="Comma-separated variable ordering for Cholesky IRFs. "
                              "Default: external-first (us_ffr,china_gdp,...)")
+    parser.add_argument("--coint-rank", type=int, default=None,
+                        help="Cointegration rank for VECM. Auto-detected from Johansen if not set.")
     return parser.parse_args()
 
 
@@ -1516,18 +1939,25 @@ def main():
     lags = max(lags, 1)
     write_diagnostics_report(df_raw, df_est, transforms, lag_diag)
 
-    if args.model_type == "auto":
+    if args.model_type == "vecm":
+        model_used = "vecm"
+    elif args.model_type == "auto":
         model_used = "bvar" if lag_diag["params_obs_ratio"] > args.auto_bvar_threshold else "var"
     else:
         model_used = args.model_type
     print(f"[DIAG] Model selection: requested={args.model_type}, using={model_used.upper()}")
+
+    coint_rank = args.coint_rank
+    if coint_rank is None and coint_result and coint_result["rank"] > 0:
+        coint_rank = coint_result["rank"]
 
     # --- 3. Estimation ---
     print("\n" + "=" * 70)
     print("  STEP 3: MODEL ESTIMATION")
     print("=" * 70)
     result = estimate_model(df_est, lags, model_type=model_used,
-                            bvar_lambda1=args.bvar_lambda1)
+                            bvar_lambda1=args.bvar_lambda1,
+                            df_raw=df_raw, coint_rank=coint_rank)
 
     # --- 3b. FEVD + Historical Decomposition ---
     print("\n" + "=" * 70)
@@ -1553,6 +1983,17 @@ def main():
                     pct = fevd[h8, ti, si] * 100
                     print(f"  {shock:15s} -> {target:18s}: {pct:5.1f}%")
 
+    # --- Sign Restrictions ---
+    print("\n--- Sign-Restriction Identification ---")
+    sign_table = default_sign_table()
+    sigma_u_base = result._sigma_u_computed
+    coefs_base = result.coefs
+    accepted_irfs = sign_restriction_irfs(
+        coefs_base, sigma_u_base, sign_table, var_names,
+        periods=20, n_draws=5000, n_accept=500)
+    plot_sign_restriction_irfs(accepted_irfs, var_names,
+                               shock_names=list(sign_table.keys()))
+
     # --- 3c. Robustness ---
     print("\n" + "=" * 70)
     print("  STEP 3c: ROBUSTNESS CHECKS")
@@ -1562,6 +2003,51 @@ def main():
         df_est, lags, model_used, args.bvar_lambda1, var_names, sigma_u_base)
     subsample_results = robustness_subsample(
         df_est, lags, model_used, args.bvar_lambda1, var_names)
+
+    # TVP-VAR analysis
+    print("\n--- TVP-VAR (Forgetting Factor Kalman Filter) ---")
+    try:
+        tvp_result = tvp_var_kalman(df_est, lags=min(lags, 2), forgetting_factor=0.99)
+        plot_tvp_var(tvp_result)
+        tvp_resid_std = np.std(tvp_result["resid"], axis=0)
+        var_resid = result.resid.values if hasattr(result.resid, "values") else result.resid
+        var_resid_std = np.std(var_resid, axis=0)
+        print("  Residual std comparison (TVP vs constant-parameter):")
+        for j, vn in enumerate(var_names):
+            ratio = tvp_resid_std[j] / max(var_resid_std[j], 1e-8)
+            print(f"    {vn:18s}: TVP={tvp_resid_std[j]:.3f}, VAR={var_resid_std[j]:.3f}, ratio={ratio:.3f}")
+    except Exception as e:
+        print(f"  TVP-VAR failed: {e}")
+
+    # VECM comparison (if not already the primary model and cointegration detected)
+    if model_used != "vecm" and coint_rank and coint_rank > 0:
+        print("\n--- VECM Robustness Comparison ---")
+        try:
+            vecm_result = fit_vecm(df_raw, lags_diff=max(lags - 1, 1),
+                                   coint_rank=min(coint_rank, 3))
+            vecm_companion = _companion_matrix(vecm_result.coefs)
+            vecm_max_eig = np.abs(np.linalg.eigvals(vecm_companion)).max()
+            print(f"  VECM max eigenvalue: {vecm_max_eig:.4f}")
+
+            if vecm_max_eig < 1.5:
+                vecm_sigma = vecm_result.sigma_u
+                vecm_irfs = _cholesky_irf(vecm_result.coefs, vecm_sigma, periods=20)
+                vecm_fevd = compute_fevd(vecm_irfs, var_names, max_horizon=20)
+                h8 = min(8, vecm_fevd.shape[0] - 1)
+                print(f"\n  VECM FEVD at h={h8} vs VAR:")
+                print(f"  {'Shock -> Target':40s} {'VAR':>8s} {'VECM':>8s}")
+                for target in ["gdp_growth", "cpi_inflation", "unemployment", "hibor_3m"]:
+                    if target in var_names:
+                        ti = var_names.index(target)
+                        for shock in ["us_ffr", "china_gdp"]:
+                            if shock in var_names:
+                                si = var_names.index(shock)
+                                var_pct = fevd[h8, ti, si] * 100
+                                vecm_pct = vecm_fevd[h8, ti, si] * 100
+                                label = f"  {shock} -> {target}"
+                                print(f"  {label:40s} {var_pct:7.1f}% {vecm_pct:7.1f}%")
+        except Exception as e:
+            print(f"  VECM comparison failed: {e}")
 
     # --- 4. Backtesting ---
     print("\n" + "=" * 70)
