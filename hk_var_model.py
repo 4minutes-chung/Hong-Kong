@@ -31,7 +31,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from scipy import stats
 from statsmodels.tsa.api import VAR
 from statsmodels.tsa.stattools import adfuller, grangercausalitytests, kpss
 from statsmodels.tsa.vector_ar.vecm import coint_johansen
@@ -326,7 +325,7 @@ def fit_vecm(
         for j in range(coint_rank):
             vec = beta[:, j]
             labels = list(df_raw.columns)
-            terms = [f"{v:.3f}*{l}" for v, l in zip(vec, labels)]
+            terms = [f"{v:.3f}*{lbl}" for v, lbl in zip(vec, labels)]
             print(f"  beta_{j+1}: {' + '.join(terms)}")
 
         print(f"\nAdjustment coefficients (alpha, {alpha.shape[0]}x{alpha.shape[1]}):")
@@ -606,7 +605,7 @@ def johansen_cointegration_test(
         print(f"  Auto rank (trace@95%, capped): {n_coint}")
         if n_coint > 0:
             print(f"  WARNING: {n_coint} cointegrating relationship(s) detected.")
-            print(f"  A VECM may be preferred for long-horizon forecasts.")
+            print("  A VECM may be preferred for long-horizon forecasts.")
         return {
             "i1_vars": i1_vars,
             "rank": n_coint,
@@ -1384,8 +1383,6 @@ def plot_tvp_var(tvp_result: dict):
     theta = tvp_result["theta"]
     dates = tvp_result["dates"]
     var_names = tvp_result["var_names"]
-    k = len(var_names)
-    lags = tvp_result["lags"]
 
     # Plot selected coefficient paths
     # Interest: us_ffr -> hibor_3m, china_gdp -> gdp_growth
@@ -1520,7 +1517,7 @@ def _plot_ordering_robustness(results, base_var_names):
             ax.bar(x + offset, shares, w, label=ext_var, alpha=0.8)
 
         ax.set_xticks(x)
-        ax.set_xticklabels([l[:12] for l in ordering_labels], rotation=20, fontsize=8)
+        ax.set_xticklabels([lbl[:12] for lbl in ordering_labels], rotation=20, fontsize=8)
         ax.set_ylabel("FEVD share at h=8")
         ax.set_title(target, fontsize=10)
         ax.set_ylim(0, 1.0)
@@ -1591,8 +1588,8 @@ def _plot_subsample_stability(coef_norms):
     if len(coef_norms) < 2:
         return
     labels = list(coef_norms.keys())
-    norms = [coef_norms[l]["norm"] for l in labels]
-    eigs = [coef_norms[l]["max_eig"] for l in labels]
+    norms = [coef_norms[lbl]["norm"] for lbl in labels]
+    eigs = [coef_norms[lbl]["max_eig"] for lbl in labels]
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
     x = np.arange(len(labels))
@@ -2136,9 +2133,9 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
     if coint_result and coint_result["rank"] > 0:
         note += f"   I(1) variables tested: {coint_result['i1_vars']}\n"
         note += f"   Cointegration rank (trace test, 95% rule): {coint_result['rank']}\n"
-        note += f"   NOTE: VECM may improve long-horizon forecasts.\n"
+        note += "   NOTE: VECM may improve long-horizon forecasts.\n"
     else:
-        note += f"   No cointegration detected (or insufficient I(1) variables).\n"
+        note += "   No cointegration detected (or insufficient I(1) variables).\n"
 
     note += f"""
 5. FORECAST EVALUATION
@@ -2167,7 +2164,7 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
             )
         else:
             note += f"   - Variables differenced for estimation: {diff_vars}\n"
-            note += f"     Forecasts are cumulated back to levels for output.\n"
+            note += "     Forecasts are cumulated back to levels for output.\n"
 
     note += "\n================================================================================\n"
     path = os.path.join(OUTPUT_DIR, "methods_note.txt")
@@ -2404,7 +2401,7 @@ def main():
     irfs = result._irfs
     var_names = list(df_est.columns)
     fevd = compute_fevd(irfs, var_names, max_horizon=20)
-    fevd_df = plot_fevd(fevd, var_names)
+    plot_fevd(fevd, var_names)
 
     hd = compute_historical_decomposition(result, df_est, var_names)
     plot_historical_decomposition(hd, df_raw=df_raw)
@@ -2437,9 +2434,9 @@ def main():
     print("  STEP 3c: ROBUSTNESS CHECKS")
     print("=" * 70)
     sigma_u_base = result._sigma_u_computed
-    ordering_results = robustness_ordering_permutations(
+    robustness_ordering_permutations(
         df_est, lags, model_used, args.bvar_lambda1, var_names, sigma_u_base)
-    subsample_results = robustness_subsample(
+    robustness_subsample(
         df_est, lags, model_used, args.bvar_lambda1, var_names)
 
     # TVP-VAR analysis
@@ -2524,8 +2521,8 @@ def main():
     print("\n" + "=" * 70)
     print("  STEP 5: SCENARIO FORECASTING (level space)")
     print("=" * 70)
-    scenarios = forecast_scenarios(result, df_est, lags, transforms, horizon=8,
-                                   df_raw=df_raw)
+    forecast_scenarios(result, df_est, lags, transforms, horizon=8,
+                       df_raw=df_raw)
 
     # --- Methods note ---
     write_methods_note(df_est, result, lags, bt_summary, transforms, lag_diag,

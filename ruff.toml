@@ -1,0 +1,3 @@
+# Matplotlib requires `matplotlib.use("Agg")` before pyplot import (E402).
+[lint.per-file-ignores]
+"hk_var_model.py" = ["E402"]
