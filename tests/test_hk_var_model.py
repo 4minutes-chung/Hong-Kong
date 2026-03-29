@@ -542,3 +542,56 @@ class TestHistoricalDecomposition:
         T = result.nobs
         k = small_var_data.shape[1]
         assert hd["structural_shocks"].shape == (T, k)
+
+
+# ============================================================
+# Sign restrictions & helpers (audit v3)
+# ============================================================
+
+class TestRandomOrthogonal:
+    def test_q_orthogonal(self):
+        rng = np.random.default_rng(123)
+        for k in (2, 4, 6):
+            Q = m._random_orthogonal(k, rng)
+            assert Q.shape == (k, k)
+            assert np.allclose(Q.T @ Q, np.eye(k), atol=1e-9)
+
+
+class TestSignRestrictionIRFs:
+    def test_smoke_accepts_some_draws(self, small_var_data):
+        """Permissive single-shock restriction should yield accepted rotations."""
+        from statsmodels.tsa.api import VAR
+
+        res = VAR(small_var_data).fit(1)
+        coefs = res.coefs
+        sigma_u = res.sigma_u
+        if hasattr(sigma_u, "values"):
+            sigma_u = sigma_u.values
+        names = list(small_var_data.columns)
+        sign_table = {"s1": {names[0]: 1}}
+        acc = m.sign_restriction_irfs(
+            coefs, sigma_u, sign_table, names,
+            periods=8, n_draws=3000, n_accept=25, horizon_check=0, seed=7,
+        )
+        assert acc is not None
+        assert acc.shape[1] == 9
+        assert acc.shape[2] == len(names)
+
+
+class TestTvpVarKalman:
+    def test_output_shapes(self, small_var_data):
+        out = m.tvp_var_kalman(small_var_data, lags=1, forgetting_factor=0.99)
+        T, k = small_var_data.shape
+        n = T - 1
+        n_coef = 1 + k * 1
+        assert out["theta"].shape == (n, k, n_coef)
+        assert out["resid"].shape == (n, k)
+        assert len(out["dates"]) == n
+
+
+class TestDefaultSignTable:
+    def test_keys_cover_external_shocks(self):
+        st = m.default_sign_table()
+        assert "us_monetary" in st and "china_growth" in st
+        assert st["us_monetary"]["us_ffr"] == 1
+        assert st["china_growth"]["china_gdp"] == 1

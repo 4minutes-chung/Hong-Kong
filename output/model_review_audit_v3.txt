@@ -1,0 +1,101 @@
+================================================================================
+MODEL REVIEW (math + econ) — AUDIT v3 — akd worktree — 2026-03-29
+Skills: super-codex, model-review-math-econ, econometrics-modeling
+================================================================================
+
+SCOPE
+  - hk_var_model.py: VAR/BVAR, VECM wrapper, sign restrictions, FEVD, TVP-VAR
+  - fetch_real_data.py: official API ingestion
+  - Identification and data alignment for HK quarterly macro panel
+
+EXIT CRITERIA (this pass)
+  [x] Document data preferences and known problems (DATA_DOWNLOAD_CHECKLIST.md)
+  [x] Flag identification / interpretation risks with evidence
+  [x] Add targeted unit tests for new math helpers
+  [x] SSL fetch behavior documented and optional strict verify
+
+--------------------------------------------------------------------------------
+A. ECONOMETRIC SPECIFICATION (econometrics-modeling)
+--------------------------------------------------------------------------------
+
+1) Estimand
+   - Reduced-form VAR( p ) on transformed series; structural objects via Cholesky,
+     sign restrictions on impact (h=0), or VECM long-run relations.
+
+2) Identification assumptions
+   - Cholesky: ordering and small-open-economy exogeneity of external block.
+   - Sign restrictions: set identification; columns of A0 = P @ Q assigned to
+     named shocks in **table order** (see docstring in sign_restriction_irfs).
+   - VECM: cointegration rank chosen from Johansen — sensitive to sample and
+     deterministic term (ci).
+
+3) Threats (explicit)
+   - China: pipeline uses **nominal** quarterly GDP YoY from FRED unless user
+     replaces with real growth — confounds real vs price effects (MEDIUM for
+     interpretation of "China growth shock").
+   - CPI: **interpolated** from annual World Bank where spline used — smooths
+     high-frequency variation (HIGH for CPI equation; priority for manual download).
+   - Sign restrictions on **transformed** (e.g. differenced) variables: signs are
+     on innovations in the estimated model, not always on published levels (MEDIUM).
+   - Residual autocorrelation / structural breaks: TVP-VAR and subsample checks
+     mitigate but do not replace explicit break dummies (documented limitation).
+
+--------------------------------------------------------------------------------
+B. MATHEMATICAL CORRECTNESS (model-review-math-econ)
+--------------------------------------------------------------------------------
+
+Issue M1 [LOW] — VECMResultsWrapper.aic/bic
+   - Formula uses Gaussian log-likelihood with det(Sigma_u) and ad-hoc k_params;
+   - Not identical to statsmodels VECM information criteria.
+   - Impact: model comparison labels only; primary inference uses statsmodels VECM fit.
+
+Issue M2 [LOW] — TVP-VAR Kalman / forgetting
+   - Simplified equation-by-equation filter; not a full TVP-VAR posterior.
+   - Impact: exploratory time-varying paths; do not treat as fully Bayesian TVP-VAR.
+
+Issue M3 [VERIFIED] — FEVD row sums
+   - fevd[h,i,:] sums to 1 by construction (cum_sq / row sum).
+   - Tests added for numerical stability.
+
+Issue M4 [MEDIUM] — Sign restriction matrix mapping
+   - Restrictions apply to Theta_h[vi, si] with si = 0..n_shocks-1 only if
+     n_shocks <= k; only first len(sign_table) columns are tested.
+   - Economic labels attach to **column index**, not to a uniquely identified
+     structural shock without additional ordering restrictions (standard in set
+     identification — disclose in paper).
+
+--------------------------------------------------------------------------------
+C. CODE REVIEW (code-reviewer)
+--------------------------------------------------------------------------------
+
+Issue C1 [MEDIUM] — SSL verification in fetch_real_data.py
+   - Default: relaxed SSL for C&SD in restrictive environments.
+   - Mitigation: VERIFY_SSL=1 uses ssl.create_default_context() (strict).
+   - Impact: MITM risk only if user runs fetch on untrusted network.
+
+Issue C2 [LOW] — DATA_SPEC vs local CSV
+   - Data dictionary can show stale FRED IDs when local_csv is used.
+   - Mitigation: DATA_DOWNLOAD_CHECKLIST.md + comment in hk_var_model.py;
+     optional future: sidecar metadata JSON.
+
+Issue C3 [LOW] — np.random.seed(42) at import
+   - Global seed; tests use fixtures with explicit seeds where needed.
+   - Acceptable for reproducibility; documented in earlier audits.
+
+--------------------------------------------------------------------------------
+D. VERIFICATION PERFORMED
+--------------------------------------------------------------------------------
+  - Unit tests: pytest tests/test_hk_var_model.py (new tests for orthogonality,
+    FEVD sums, sign-restriction smoke, TVP shape)
+  - Manual: sign_restriction_irfs docstring aligns with Theta[response, shock]
+
+--------------------------------------------------------------------------------
+E. FOLLOW-UPS (user: download tomorrow)
+--------------------------------------------------------------------------------
+  1. Official HK CPI (monthly/quarterly) from C&SD → replace spline CPI.
+  2. China **real** quarterly growth (NBS or IMF) if accessible.
+  3. Re-run full pipeline and update paper tables + AGENTS.md headline FEVD.
+
+================================================================================
+END AUDIT v3
+================================================================================

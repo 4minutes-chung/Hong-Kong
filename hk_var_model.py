@@ -12,11 +12,11 @@ Pipeline: data assembly -> diagnostics -> estimation -> FEVD ->
 Variables (Cholesky ordering: external-first)
 ---------
   us_ffr        : US effective federal funds rate (%)
-  china_gdp     : China real GDP growth (YoY %)
-  gdp_growth    : Real GDP growth (YoY %, HK)
-  cpi_inflation : CPI inflation (YoY %, HK)
-  unemployment  : Unemployment rate (%, HK)
-  hibor_3m      : 3-month HIBOR (%, proxy via US rates + spread)
+  china_gdp     : China quarterly GDP growth (YoY %; nominal GDP in pipeline — see DATA_DOWNLOAD_CHECKLIST.md)
+  gdp_growth    : Real GDP growth (YoY %, HK) — C&SD when using hk_macro_quarterly_real.csv
+  cpi_inflation : CPI inflation (YoY %, HK) — prefer C&SD; WB+spline fallback in fetch_real_data.py
+  unemployment  : Unemployment rate (%, HK) — C&SD when using real CSV
+  hibor_3m      : 3-month HIBOR (%) — HKMA API when using real CSV; else derived from US FFR + spread
 """
 
 import warnings
@@ -52,6 +52,8 @@ MODEL_VARIABLES = [
     "hibor_3m", "china_gdp", "us_ffr",
 ]
 
+# NOTE: Series IDs below are fallbacks when local CSV is absent; many HK FRED IDs return 404.
+# Prefer data/hk_macro_quarterly_real.csv from fetch_real_data.py (see DATA_DOWNLOAD_CHECKLIST.md).
 DATA_SPEC = {
     "gdp_growth": {
         "source": "FRED", "series_id": "NGDPRSAXDCHKQ",
@@ -74,7 +76,7 @@ DATA_SPEC = {
         "needs_pct_change": False,
     },
     "china_gdp": {
-        "source": "FRED", "series_id": "NGDPRSAXDCCNQ",
+        "source": "FRED", "series_id": "CHNGDPNQDSMEI",
         "frequency": "quarterly", "target_transform": "yoy_pct",
         "needs_pct_change": True,
     },
@@ -843,10 +845,16 @@ def sign_restriction_irfs(coefs, sigma_u, sign_table: dict, var_names: list,
     """
     Identify structural shocks via sign restrictions (Rubio-Ramirez et al. 2010).
 
-    sign_table: dict mapping shock_name -> dict of {variable: sign} where
-                sign is +1 or -1, applied at horizon_check.
-    Returns: accepted_irfs (n_accept, periods+1, k, k) array, or fewer if
-             not enough draws satisfy the restrictions.
+    sign_table: ordered dict mapping shock_name -> {variable: +1/-1} for horizon_check.
+                Row i of the restriction matrix is applied to **structural column i**
+                of Theta_h (i.e. the i-th column of A0 = chol(Sigma_u) @ Q).
+                Interpretation: column 0 = first named shock in sign_table, etc.
+
+    Estimation is on possibly transformed data (e.g. first differences); signs
+    apply to the **estimated VAR in mean** — interpret as local impulses in the
+    chosen metric, not literal national-accounts units if variables are differenced.
+
+    Returns: accepted_irfs (n_accept, periods+1, k, k) array, or None if none accepted.
     """
     p, k, _ = coefs.shape
     P = np.linalg.cholesky(sigma_u)

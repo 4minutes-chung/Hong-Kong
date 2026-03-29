@@ -19,15 +19,22 @@ from scipy.interpolate import CubicSpline
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-_SSL_CTX = ssl.create_default_context()
-_SSL_CTX.check_hostname = False
-_SSL_CTX.verify_mode = ssl.CERT_NONE
 _HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """Use VERIFY_SSL=1 for strict certificate verification (recommended on trusted networks)."""
+    if os.environ.get("VERIFY_SSL", "").strip() in ("1", "true", "yes"):
+        return ssl.create_default_context()
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
 
 def _fetch_json(url: str) -> dict:
     req = urllib.request.Request(url, headers=_HEADERS)
-    with urllib.request.urlopen(req, timeout=30, context=_SSL_CTX) as resp:
+    with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as resp:
         return json.loads(resp.read())
 
 
@@ -143,7 +150,7 @@ def fetch_hk_cpi() -> pd.DataFrame:
         "FP.CPI.TOTL.ZG?format=json&per_page=500"
     )
     req = urllib.request.Request(url, headers=_HEADERS)
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15, context=_ssl_context()) as resp:
         wb_data = json.loads(resp.read())
 
     annual = sorted(

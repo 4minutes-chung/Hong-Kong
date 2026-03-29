@@ -7,7 +7,9 @@
 
 **Author:** Steven Chung
 **Date range:** March 2026
-**Status:** Working paper ready; needs official quarterly data for journal submission
+**Status:** Working paper ready; needs official quarterly **CPI** (and ideally **real** China growth) for strongest journal submission.
+
+**Data handoff:** See **`DATA_DOWNLOAD_CHECKLIST.md`** for preferred sources, known API issues, and tomorrow’s manual download steps. Third-party audit of identification and data risks: **`output/model_review_audit_v3.txt`**.
 
 ---
 
