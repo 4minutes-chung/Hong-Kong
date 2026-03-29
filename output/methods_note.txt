@@ -27,7 +27,7 @@
 
 4. COINTEGRATION
    I(1) variables tested: ['china_gdp', 'cpi_inflation', 'unemployment', 'hibor_3m']
-   Cointegration rank (90%): 4
+   Cointegration rank (90%): 3
    NOTE: VECM may improve long-horizon forecasts.
 
 5. FORECAST EVALUATION

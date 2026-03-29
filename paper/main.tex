@@ -182,6 +182,11 @@ funds rate and China GDP are from FRED. CPI inflation uses an official
 C\&SD monthly YoY splice where available (currently from 2020Q2 onward),
 with World Bank annual interpolation retained only as a fallback for
 earlier periods.
+The replication package commits a fixed snapshot set in
+\texttt{output/} (\texttt{fevd\_table.csv},
+\texttt{model\_diagnostics.txt}, \texttt{vecm\_diagnostics.txt}, and
+\texttt{var\_vecm\_backtest\_comparison.csv}) so paper claims can be
+traced to exact generated artifacts.
 
 \subsection{Stationarity and Cointegration}
 

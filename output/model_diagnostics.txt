@@ -21,3 +21,15 @@ Lag-selection diagnostics:
   n_observations=102
   params_obs_ratio=0.127
   guardrail_triggered=False
+
+Cointegration diagnostics (Johansen):
+  i1_vars=['china_gdp', 'cpi_inflation', 'unemployment', 'hibor_3m']
+  det_order=0, k_ar_diff=1
+  rank_trace(90/95/99)=3/3/2
+  rank_maxeig(90/95/99)=3/3/1
+  selected_rank_auto(trace@95%)=3
+
+VECM specification:
+  coint_rank=3
+  lag_diff=1
+  deterministic=ci

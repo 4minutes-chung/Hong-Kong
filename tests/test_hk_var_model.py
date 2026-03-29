@@ -595,3 +595,78 @@ class TestDefaultSignTable:
         assert "us_monetary" in st and "china_growth" in st
         assert st["us_monetary"]["us_ffr"] == 1
         assert st["china_growth"]["china_gdp"] == 1
+
+
+# ============================================================
+# VECM-first core upgrade
+# ============================================================
+
+@pytest.fixture
+def vecm_ready_data():
+    """Small but persistent multi-variate dataset for fast VECM smoke tests."""
+    rng = np.random.default_rng(2026)
+    T = 90
+    dates = pd.date_range("2001-01-01", periods=T, freq="QS")
+    us_ffr = np.cumsum(rng.normal(0.0, 0.15, T)) + 2.5
+    china_gdp = np.cumsum(rng.normal(0.0, 0.25, T)) + 8.0
+    gdp_growth = 0.3 * china_gdp - 0.2 * us_ffr + rng.normal(0, 0.35, T)
+    cpi_inflation = 0.2 * gdp_growth + rng.normal(0, 0.25, T)
+    unemployment = -0.1 * gdp_growth + rng.normal(0, 0.2, T) + 4.5
+    hibor_3m = us_ffr + rng.normal(0, 0.1, T)
+    return pd.DataFrame(
+        {
+            "us_ffr": us_ffr,
+            "china_gdp": china_gdp,
+            "gdp_growth": gdp_growth,
+            "cpi_inflation": cpi_inflation,
+            "unemployment": unemployment,
+            "hibor_3m": hibor_3m,
+        },
+        index=dates,
+    )
+
+
+class TestResolveCointRank:
+    def test_auto_uses_coint_result_rank(self):
+        coint_result = {"i1_vars": ["a", "b", "c"], "rank": 2}
+        rank = m.resolve_coint_rank("auto", coint_result)
+        assert rank == 2
+
+    def test_manual_rank_is_capped(self):
+        coint_result = {"i1_vars": ["a", "b", "c"], "rank": 1}
+        rank = m.resolve_coint_rank("10", coint_result)
+        assert rank == 2  # max feasible is n_i1 - 1
+
+
+class TestVecmDeterministicAndBacktest:
+    def test_fit_vecm_exposes_spec(self, vecm_ready_data):
+        res = m.fit_vecm(
+            vecm_ready_data,
+            lags_diff=1,
+            coint_rank=1,
+            deterministic="co",
+            verbose=False,
+        )
+        assert res.k_ar == 2
+        assert res.k_ar_diff == 1
+        assert res.coint_rank == 1
+        assert res.deterministic == "co"
+
+    def test_var_vecm_level_comparison_runs(self, vecm_ready_data):
+        adf_res = m.stationarity_tests(vecm_ready_data)
+        df_est, transforms = m.apply_transforms(vecm_ready_data, adf_res)
+        coint = m.johansen_cointegration_test(vecm_ready_data, adf_res, k_ar_diff=1)
+        rank = m.resolve_coint_rank("auto", coint) if coint else 1
+        out = m.compare_var_vecm_backtest_level(
+            df_est=df_est,
+            df_raw=vecm_ready_data,
+            lags=2,
+            transforms=transforms,
+            coint_rank=rank,
+            vecm_deterministic="ci",
+            vecm_lag_diff=1,
+        )
+        assert isinstance(out, pd.DataFrame)
+        if not out.empty:
+            required = {"variable", "horizon", "RMSE_VAR", "RMSE_VECM", "RMSE_winner"}
+            assert required.issubset(set(out.columns))
