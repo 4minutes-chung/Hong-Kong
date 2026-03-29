@@ -11,12 +11,12 @@ Pipeline: data assembly -> diagnostics -> estimation -> FEVD ->
 
 Variables (Cholesky ordering: external-first)
 ---------
-  us_ffr        : US effective federal funds rate (%)
-  china_gdp     : China real GDP growth (YoY %)
-  gdp_growth    : Real GDP growth (YoY %, HK)
-  cpi_inflation : CPI inflation (YoY %, HK)
-  unemployment  : Unemployment rate (%, HK)
-  hibor_3m      : 3-month HIBOR (%, proxy via US rates + spread)
+  us_ffr        : US effective federal funds rate (%), FRED monthly->QS mean
+  china_gdp     : China nominal GDP YoY % (FRED CHNGDPNQDSMEI) when real CSV used
+  gdp_growth    : HK real GDP YoY % (C&SD API 310-30001) when real CSV used
+  cpi_inflation : HK CPI inflation YoY % (World Bank annual + spline if real CSV)
+  unemployment  : HK unemployment % (C&SD 210-06101 M3M SAUR/UR) when real CSV
+  hibor_3m      : 3-month HIBOR % (HKMA API) when real CSV; else FFR+spread
 """
 
 import warnings
@@ -839,7 +839,7 @@ def _random_orthogonal(k: int, rng: np.random.Generator) -> np.ndarray:
 def sign_restriction_irfs(coefs, sigma_u, sign_table: dict, var_names: list,
                            periods: int = 20, n_draws: int = 2000,
                            n_accept: int = 500, horizon_check: int = 0,
-                           seed: int = 44):
+                           seed: int = 44, verbose: bool = True):
     """
     Identify structural shocks via sign restrictions (Rubio-Ramirez et al. 2010).
 
@@ -908,7 +908,9 @@ def sign_restriction_irfs(coefs, sigma_u, sign_table: dict, var_names: list,
             if len(accepted) >= n_accept:
                 break
 
-    print(f"[SIGN] {len(accepted)}/{n_draws} draws accepted ({len(accepted)/n_draws*100:.1f}%)")
+    if verbose:
+        pct = len(accepted) / max(n_draws, 1) * 100
+        print(f"[SIGN] {len(accepted)}/{n_draws} draws accepted ({pct:.1f}%)")
     if not accepted:
         return None
     return np.array(accepted)
@@ -1990,7 +1992,7 @@ def main():
     coefs_base = result.coefs
     accepted_irfs = sign_restriction_irfs(
         coefs_base, sigma_u_base, sign_table, var_names,
-        periods=20, n_draws=5000, n_accept=500)
+        periods=20, n_draws=5000, n_accept=500, verbose=True)
     plot_sign_restriction_irfs(accepted_irfs, var_names,
                                shock_names=list(sign_table.keys()))
 

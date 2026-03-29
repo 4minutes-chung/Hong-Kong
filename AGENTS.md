@@ -9,6 +9,10 @@
 **Date range:** March 2026
 **Status:** Working paper ready; needs official quarterly data for journal submission
 
+**Data handoff (manual downloads):** See `DATA_DOWNLOAD.md` — variable priorities, CSV schema, API caveats (CPI and China real GDP are the main gaps).
+
+**Verification bundle:** `output/verification_report_2026.txt` — Super Codex checklist, model-review-math-econ, econometrics-modeling, code-reviewer, and test scope.
+
 ---
 
 ## 1. Project Overview

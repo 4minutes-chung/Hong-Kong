@@ -542,3 +542,55 @@ class TestHistoricalDecomposition:
         T = result.nobs
         k = small_var_data.shape[1]
         assert hd["structural_shocks"].shape == (T, k)
+
+
+# ============================================================
+# Sign restrictions & TVP-VAR
+# ============================================================
+
+class TestRandomOrthogonal:
+    def test_q_orthogonal(self):
+        rng = np.random.default_rng(0)
+        Q = m._random_orthogonal(5, rng)
+        assert Q.shape == (5, 5)
+        assert np.allclose(Q.T @ Q, np.eye(5), atol=1e-10)
+
+
+class TestDefaultSignTable:
+    def test_keys_and_signs(self):
+        st = m.default_sign_table()
+        assert "us_monetary" in st and "china_growth" in st
+        assert st["us_monetary"]["us_ffr"] == 1
+        assert st["us_monetary"]["gdp_growth"] == -1
+        assert st["china_growth"]["china_gdp"] == 1
+
+
+class TestSignRestrictionIrfs:
+    def test_output_shape_matches_accepted(self, small_var_data):
+        from statsmodels.tsa.api import VAR as StatsVAR
+        fitted = StatsVAR(small_var_data).fit(2)
+        coefs = fitted.coefs
+        sigma = fitted.sigma_u
+        names = list(small_var_data.columns)
+        loose = {"s1": {names[0]: 1}}
+        out = m.sign_restriction_irfs(
+            coefs, sigma, loose, names,
+            periods=8, n_draws=400, n_accept=10,
+            verbose=False,
+        )
+        if out is not None:
+            assert out.ndim == 4
+            assert out.shape[1] == 9  # periods + 1
+            assert out.shape[2] == out.shape[3] == 3
+
+
+class TestTvpVarKalman:
+    def test_returns_expected_keys_and_shapes(self, small_var_data):
+        res = m.tvp_var_kalman(small_var_data, lags=1)
+        T, k = small_var_data.shape
+        n = T - 1
+        n_coef = 1 + k
+        assert set(res.keys()) >= {"theta", "resid", "dates", "var_names", "lags", "forgetting_factor"}
+        assert res["theta"].shape == (n, k, n_coef)
+        assert res["resid"].shape == (n, k)
+        assert len(res["dates"]) == n
