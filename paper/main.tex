@@ -33,11 +33,11 @@ Three identification strategies are employed: Cholesky ordering,
 sign restrictions, and a VECM exploiting four cointegrating
 relationships.
 
-The reduced-form VAR finds that China GDP growth explains 30\% of
+The reduced-form VAR finds that China GDP growth explains 41\% of
 Hong Kong GDP forecast error variance at the two-year horizon, while
 the US federal funds rate explains 32\% of HIBOR variance. The VECM,
 which preserves the long-run currency board equilibrium, reveals a
-much stronger US channel: the FFR explains 79\% of HIBOR and 60\%
+stronger US channel: the FFR explains 62\% of HIBOR and 36\%
 of unemployment variance. Sign-restricted IRFs confirm that a
 US monetary tightening raises HIBOR, depresses GDP, and increases
 unemployment, while a positive China growth shock boosts GDP and CPI.
@@ -83,14 +83,14 @@ The main findings are:
     \item \textbf{The US channel is stronger than Cholesky alone suggests.}
     The reduced-form VAR attributes 32\% of HIBOR variance to the US FFR
     at the 8-quarter horizon. The VECM, which preserves cointegrating
-    relationships, raises this to 79\%, revealing that Cholesky
+    relationships, raises this to 62\%, revealing that Cholesky
     identification underestimates the currency board passthrough by
     differencing away the long-run peg equilibrium.
 
     \item \textbf{China dominates real activity, but less than expected.}
-    China GDP growth explains 30\% of Hong Kong GDP forecast error
-    variance in the VAR and 17\% in the VECM. Own shocks dominate at
-    56--64\%, suggesting substantial domestic business cycle dynamics.
+    China GDP growth explains 41\% of Hong Kong GDP forecast error
+    variance in the VAR and 28\% in the VECM. Own shocks remain large,
+    suggesting substantial domestic business cycle dynamics.
 
     \item \textbf{Sign restrictions confirm the transmission channels.}
     Theory-consistent sign restrictions identify a US monetary tightening
@@ -166,7 +166,7 @@ Variable & Description & Unit & Source \\
 \texttt{us\_ffr} & US effective federal funds rate & \% & FRED (FEDFUNDS) \\
 \texttt{china\_gdp} & China nominal GDP growth & YoY \% & FRED (CHNGDPNQDSMEI) \\
 \texttt{gdp\_growth} & HK real GDP growth & YoY \% & C\&SD table 310-30001 \\
-\texttt{cpi\_inflation} & HK CPI inflation & YoY \% & World Bank + spline \\
+\texttt{cpi\_inflation} & HK CPI inflation & YoY \% & C\&SD splice + WB fallback \\
 \texttt{unemployment} & HK unemployment rate & \% & C\&SD table 210-06101 \\
 \texttt{hibor\_3m} & 3-month HIBOR & \% & HKMA API \\
 \bottomrule
@@ -178,9 +178,10 @@ Department's official quarterly figures via their public API.
 The unemployment rate is the seasonally adjusted 3-month moving average
 from C\&SD. The 3-month HIBOR is sourced directly from the HKMA's
 end-of-month fixing data, aggregated to quarterly means. The US federal
-funds rate and China GDP are from FRED. CPI inflation is the only
-variable requiring temporal disaggregation (World Bank annual data
-interpolated via cubic spline).
+funds rate and China GDP are from FRED. CPI inflation uses an official
+C\&SD monthly YoY splice where available (currently from 2020Q2 onward),
+with World Bank annual interpolation retained only as a fallback for
+earlier periods.
 
 \subsection{Stationarity and Cointegration}
 
@@ -241,6 +242,10 @@ I draw 5,000 candidate rotations and retain those satisfying:
 
 The median and 68\% pointwise bands from the accepted draws provide
 set-identified IRFs.
+Because estimation applies first differences to selected variables,
+the sign restrictions are imposed on innovations in the transformed
+system; interpretation in levels is therefore local and model-based
+rather than a direct level-accounting identity.
 
 \subsection{Vector Error Correction Model}
 
@@ -286,12 +291,11 @@ e_{j,t-s}
 
 Pairwise Granger causality tests confirm the expected transmission
 channels. China GDP Granger-causes HK GDP growth ($p = 0.020$),
-CPI inflation ($p = 0.014$), and unemployment ($p < 0.001$).
-The US FFR Granger-causes unemployment ($p = 0.002$) and HIBOR
-($p < 0.001$). Notably, the FFR does \emph{not} Granger-cause
-GDP growth directly ($p = 0.044$, marginal), consistent with the
-currency board transmitting through interest rates rather than
-directly through output.
+CPI inflation ($p < 0.001$), and unemployment ($p < 0.001$).
+The US FFR Granger-causes CPI inflation ($p = 0.006$), unemployment
+($p = 0.002$), and HIBOR ($p < 0.001$). The FFR also Granger-causes
+GDP growth at the 5\% level ($p = 0.044$), suggesting a measurable
+external-rate channel to real activity in this sample.
 
 \subsection{FEVD: Who Drives What?}
 
@@ -310,10 +314,10 @@ three specifications.
 \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
 Target & US FFR & China & US FFR & China & US FFR & China \\
 \midrule
-HK GDP growth    &  4.6\% & 30.1\% & 12.2\% & 16.8\% &  --- &  --- \\
-HK CPI inflation &  3.9\% &  9.0\% & 10.8\% &  9.4\% &  --- &  --- \\
-HK Unemployment  & 19.2\% &  8.3\% & 59.5\% &  0.5\% &  --- &  --- \\
-3M HIBOR         & 31.6\% &  3.2\% & 78.6\% &  6.4\% &  --- &  --- \\
+HK GDP growth    & 10.1\% & 41.2\% & 14.2\% & 27.5\% &  --- &  --- \\
+HK CPI inflation &  7.4\% & 38.1\% &  7.7\% & 17.8\% &  --- &  --- \\
+HK Unemployment  & 22.1\% & 14.0\% & 35.8\% &  2.8\% &  --- &  --- \\
+3M HIBOR         & 32.3\% &  4.7\% & 62.3\% &  2.2\% &  --- &  --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -323,12 +327,12 @@ critically on how cointegration is handled:
 
 \begin{itemize}
     \item In the \textbf{reduced-form VAR} (which differences I(1)
-    variables), the US FFR explains 32\% of HIBOR variance and 19\%
-    of unemployment. China GDP explains 30\% of HK GDP.
+    variables), the US FFR explains 32\% of HIBOR variance and 22\%
+    of unemployment. China GDP explains 41\% of HK GDP.
 
     \item In the \textbf{VECM}, which preserves the long-run
-    FFR--HIBOR peg equilibrium, the US channel strengthens dramatically:
-    79\% for HIBOR and 60\% for unemployment. The Cholesky VAR
+    FFR--HIBOR peg equilibrium, the US channel strengthens notably:
+    62\% for HIBOR and 36\% for unemployment. The Cholesky VAR
     understates the currency board passthrough because differencing
     removes the long-run equilibrium relationship that the peg
     creates.
@@ -340,7 +344,7 @@ critically on how cointegration is handled:
 
 \subsection{Sign-Restricted IRFs}
 
-Sign restrictions accept 80 of 5,000 draws (1.6\% acceptance rate),
+Sign restrictions accept 98 of 5,000 draws (2.0\% acceptance rate),
 indicating that the four simultaneous sign constraints are informative.
 The median IRFs show:
 \begin{itemize}
@@ -411,11 +415,12 @@ key insights emerge.
 First, the standard VAR with Cholesky identification underestimates
 the US monetary channel because differencing removes the cointegrating
 relationship created by the currency board peg. The VECM, which
-preserves this equilibrium, reveals that the US FFR explains 79\% of
-HIBOR variance and 60\% of unemployment variance.
+preserves this equilibrium, reveals that the US FFR explains 62\% of
+HIBOR variance and 36\% of unemployment variance.
 
-Second, China GDP growth remains the dominant driver of Hong Kong's
-real economy (17--30\% of GDP variance depending on specification),
+Second, China GDP growth remains the dominant external driver of
+Hong Kong's real economy (28--41\% of GDP variance depending on
+specification),
 and this influence has strengthened since the GFC as measured by the
 TVP-VAR. However, own shocks still dominate GDP variance (56--64\%),
 suggesting substantial domestic business cycle dynamics.
