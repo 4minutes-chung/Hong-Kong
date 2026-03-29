@@ -638,6 +638,17 @@ class TestResolveCointRank:
         assert rank == 2  # max feasible is n_i1 - 1
 
 
+class TestVecmRankOrDefault:
+    def test_none_defaults_to_one(self):
+        assert m._vecm_rank_or_default(None) == 1
+
+    def test_zero_preserved(self):
+        assert m._vecm_rank_or_default(0) == 0
+
+    def test_explicit_positive(self):
+        assert m._vecm_rank_or_default(3) == 3
+
+
 class TestVecmDeterministicAndBacktest:
     def test_fit_vecm_exposes_spec(self, vecm_ready_data):
         res = m.fit_vecm(

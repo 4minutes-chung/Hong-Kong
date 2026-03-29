@@ -30,8 +30,8 @@ Hong Kong's real economy under the currency board? I estimate a
 six-variable quarterly VAR for Hong Kong (1998Q1--2023Q3) using data
 from Hong Kong's Census and Statistics Department, the HKMA, and FRED.
 Three identification strategies are employed: Cholesky ordering,
-sign restrictions, and a VECM exploiting four cointegrating
-relationships.
+sign restrictions, and a VECM exploiting three cointegrating
+relationships among the I(1) subset (maximum rank $=3$ when $k=4$).
 
 The reduced-form VAR finds that China GDP growth explains 41\% of
 Hong Kong GDP forecast error variance at the two-year horizon, while
@@ -195,9 +195,9 @@ Where both tests agree on a unit root, I take first differences.
 Four variables are differenced: \texttt{china\_gdp},
 \texttt{cpi\_inflation}, \texttt{unemployment}, and \texttt{hibor\_3m}.
 
-Johansen cointegration testing on the I(1) subset detects \emph{four}
-cointegrating relationships at the 90\% level (trace statistics:
-82.7, 37.9, 18.5, 3.8). This strong cointegration---particularly
+Johansen cointegration testing on the I(1) subset detects \emph{three}
+cointegrating relationships at the 95\% trace level (trace statistics:
+71.3, 35.8, 13.2, 4.9). This strong cointegration---particularly
 the FFR--HIBOR spread under the currency board---motivates the VECM
 specification as a primary robustness check.
 
@@ -254,8 +254,8 @@ rather than a direct level-accounting identity.
 
 \subsection{Vector Error Correction Model}
 
-Given the four cointegrating relationships detected by Johansen, I
-estimate a VECM:
+Given the three cointegrating relationships detected by Johansen (among
+four I(1) variables), I estimate a VECM:
 \[
 \Delta y_t = \alpha \beta' y_{t-1} + \sum_{i=1}^{p-1}
 \Gamma_i \Delta y_{t-i} + c + u_t
