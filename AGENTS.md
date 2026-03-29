@@ -11,6 +11,10 @@
 
 **Data handoff:** See **`DATA_DOWNLOAD_CHECKLIST.md`** for preferred sources, known API issues, and tomorrow’s manual download steps. Third-party audit of identification and data risks: **`output/model_review_audit_v3.txt`**.
 
+**Data handoff (manual downloads):** See `DATA_DOWNLOAD.md` — variable priorities, CSV schema, API caveats (CPI and China real GDP are the main gaps).
+
+**Verification bundle:** `output/verification_report_2026.txt` — Super Codex checklist, model-review-math-econ, econometrics-modeling, code-reviewer, and test scope.
+
 ---
 
 ## 1. Project Overview

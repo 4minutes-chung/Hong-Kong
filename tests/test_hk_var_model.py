@@ -545,7 +545,7 @@ class TestHistoricalDecomposition:
 
 
 # ============================================================
-# Sign restrictions & helpers (audit v3)
+# Sign restrictions & TVP-VAR (merged worktrees)
 # ============================================================
 
 class TestRandomOrthogonal:
@@ -587,6 +587,7 @@ class TestTvpVarKalman:
         assert out["theta"].shape == (n, k, n_coef)
         assert out["resid"].shape == (n, k)
         assert len(out["dates"]) == n
+        assert set(out.keys()) >= {"theta", "resid", "dates", "var_names", "lags", "forgetting_factor"}
 
 
 class TestDefaultSignTable:
@@ -594,4 +595,5 @@ class TestDefaultSignTable:
         st = m.default_sign_table()
         assert "us_monetary" in st and "china_growth" in st
         assert st["us_monetary"]["us_ffr"] == 1
+        assert st["us_monetary"]["gdp_growth"] == -1
         assert st["china_growth"]["china_gdp"] == 1
