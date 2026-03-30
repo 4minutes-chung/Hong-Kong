@@ -1,8 +1,8 @@
 {
   "gdp_growth": "C&SD table 310-30001 (quarterly YoY %)",
-  "cpi_inflation": "CPI source=official_splice_2020-04-01_2024-10-01; C&SD WBR CPI_R_2_01A where available, else WB spline",
+  "cpi_inflation": "CPI source=official_splice_2020-04-01_2026-01-01_share_21.24%; lineage_file=data/cpi_lineage.csv; official_window=2020-04-01 to 2026-01-01; official_share=21.2%; C&SD WBR CPI_R_2_01A where available, else WB spline",
   "unemployment": "C&SD table 210-06101 (SAUR/UR M3M -> quarterly mean)",
-  "hibor_3m": "HKMA hibor.fixing endperiod API (monthly -> quarterly mean)",
+  "hibor_3m": "HKMA hibor.fixing endperiod API (monthly -> quarterly mean, primary path only)",
   "china_gdp": "FRED CHNGDPNQDSMEI nominal quarterly GDP -> YoY %",
   "us_ffr": "FRED FEDFUNDS monthly -> quarterly mean"
 }

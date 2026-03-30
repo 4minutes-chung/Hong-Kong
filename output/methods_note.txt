@@ -38,16 +38,19 @@
 6. SCENARIO DESIGN
    All forecasts presented in LEVEL space (transforms inverted).
    Baseline       : Unconditional VAR forecast, 8 quarters ahead
-   Weak external  : China GDP level -3.0pp, US FFR level +1.5pp
-   Global easing  : China GDP level +1.0pp, US FFR level -1.0pp
+   Weak external  : China nominal GDP growth level -3.0pp, US FFR level +1.5pp
+   Global easing  : China nominal GDP growth level +1.0pp, US FFR level -1.0pp
    Confidence     : Bootstrapped 80% interval (500 replications, residual resampling)
 
 7. KEY ASSUMPTIONS AND LIMITATIONS
    - Currency board (HKD peg to USD) maintained throughout forecast horizon.
    - Reduced-form model; Cholesky ordering used for IRF illustration only.
    - Structural breaks (GFC, COVID) present; no explicit dummies.
-   - Scenario shocks defined in level space for interpretability.
+   - Scenario shocks are entered in level terms for economic interpretation.
    - Variables differenced for estimation: ['china_gdp', 'cpi_inflation', 'unemployment', 'hibor_3m']
      Forecasts are cumulated back to levels for output.
+   - For differenced series, scenario levels are mapped to the final
+     transformed state (desired_level - last_level) before simulation,
+     then converted back to level paths in saved outputs.
 
 ================================================================================

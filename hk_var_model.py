@@ -2,7 +2,7 @@
 Hong Kong Quarterly VAR Macro Forecasting Model
 ================================================
 Research question:
-  "How do US monetary policy shocks and China growth shocks propagate
+  "How do US monetary policy shocks and China nominal growth shocks propagate
    to Hong Kong's real economy under the currency board?"
 
 Pipeline: data assembly -> diagnostics -> estimation -> FEVD ->
@@ -12,7 +12,7 @@ Pipeline: data assembly -> diagnostics -> estimation -> FEVD ->
 Variables (Cholesky ordering: external-first)
 ---------
   us_ffr        : US effective federal funds rate (%); FRED monthly -> quarterly mean
-  china_gdp     : China YoY % (FRED CHNGDPNQDSMEI nominal quarterly; prefer real NBS — DATA_DOWNLOAD_CHECKLIST.md)
+  china_gdp     : China nominal GDP YoY % (FRED CHNGDPNQDSMEI; prefer real-series upgrade — DATA_DOWNLOAD_CHECKLIST.md)
   gdp_growth    : HK real GDP YoY % (C&SD 310-30001) when hk_macro_quarterly_real.csv
   cpi_inflation : HK CPI YoY % — prefer C&SD; else World Bank annual + spline (fetch_real_data.py)
   unemployment  : HK % (C&SD 210-06101, M3M SAUR/UR) when real CSV
@@ -36,6 +36,10 @@ from statsmodels.tsa.vector_ar.vecm import coint_johansen
 from statsmodels.stats.diagnostic import acorr_ljungbox
 from statsmodels.tsa.ar_model import AutoReg
 from statsmodels.tools.sm_exceptions import InterpolationWarning
+from hk_var.scenario_utils import (
+    invert_transforms as _invert_transforms_impl,
+    shock_in_level_space as _shock_in_level_space_impl,
+)
 
 # Avoid blanket suppression: keep visibility for unexpected issues.
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -760,7 +764,7 @@ def plot_raw_data(df: pd.DataFrame):
         "cpi_inflation": "HK CPI Inflation (YoY %)",
         "unemployment": "HK Unemployment Rate (%)",
         "hibor_3m": "3-Month HIBOR (%)",
-        "china_gdp": "China Real GDP Growth (YoY %)",
+        "china_gdp": "China Nominal GDP Growth (YoY %)",
         "us_ffr": "US Federal Funds Rate (%)",
     }
     for i, col in enumerate(df.columns):
@@ -1918,13 +1922,7 @@ def _invert_transforms(fc_transformed: np.ndarray, cols: list,
     Audit fix #1: convert forecasts from transformed space back to levels.
     For first_diff: level[t] = last_known_level + cumsum(diff_forecast[:t+1])
     """
-    fc_level = fc_transformed.copy()
-    for j, col in enumerate(cols):
-        info = transforms.get(col, {})
-        if info.get("transform") == "first_diff":
-            last_lev = info["last_level"]
-            fc_level[:, j] = last_lev + np.cumsum(fc_transformed[:, j])
-    return fc_level
+    return _invert_transforms_impl(fc_transformed, cols, transforms)
 
 
 def _shock_in_level_space(last_obs: np.ndarray, col_idx: int, desired_level: float,
@@ -1933,14 +1931,7 @@ def _shock_in_level_space(last_obs: np.ndarray, col_idx: int, desired_level: flo
     Audit fix #2: define scenario shocks in level space, convert to
     transformed space for the forecast conditioning.
     """
-    shocked = last_obs.copy()
-    info = transforms.get(col_name, {})
-    if info.get("transform") == "first_diff":
-        current_last_level = info["last_level"]
-        shocked[-1, col_idx] = desired_level - current_last_level
-    else:
-        shocked[-1, col_idx] = desired_level
-    return shocked
+    return _shock_in_level_space_impl(last_obs, col_idx, desired_level, transforms, col_name)
 
 
 def forecast_scenarios(result, df: pd.DataFrame, lags: int,
@@ -1999,7 +1990,7 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
     china_baseline_level = transforms["china_gdp"]["last_level"]
     ffr_baseline_level = transforms["us_ffr"]["last_level"]
 
-    # Weak external: China GDP growth falls 3pp, FFR rises 1.5pp
+    # Weak external: China nominal GDP growth falls 3pp, FFR rises 1.5pp
     shock1 = _shock_in_level_space(
         last_obs, china_idx, china_baseline_level - 3.0, transforms, "china_gdp")
     shock1 = _shock_in_level_space(
@@ -2012,7 +2003,7 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
         scenarios["weak_external"] = pd.DataFrame(
             _invert_transforms(weak_fc_t, cols, transforms), index=fc_dates, columns=cols)
 
-    # Global easing: China GDP growth rises 1pp, FFR falls 1pp
+    # Global easing: China nominal GDP growth rises 1pp, FFR falls 1pp
     shock2 = _shock_in_level_space(
         last_obs, china_idx, china_baseline_level + 1.0, transforms, "china_gdp")
     shock2 = _shock_in_level_space(
@@ -2154,15 +2145,15 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
 6. SCENARIO DESIGN
    All forecasts presented in LEVEL space (transforms inverted).
    Baseline       : Unconditional VAR forecast, 8 quarters ahead
-   Weak external  : China GDP level -{3.0}pp, US FFR level +{1.5}pp
-   Global easing  : China GDP level +{1.0}pp, US FFR level -{1.0}pp
+   Weak external  : China nominal GDP growth level -{3.0}pp, US FFR level +{1.5}pp
+   Global easing  : China nominal GDP growth level +{1.0}pp, US FFR level -{1.0}pp
    Confidence     : Bootstrapped 80% interval (500 replications, residual resampling)
 
 7. KEY ASSUMPTIONS AND LIMITATIONS
    - Currency board (HKD peg to USD) maintained throughout forecast horizon.
    - Reduced-form model; Cholesky ordering used for IRF illustration only.
    - Structural breaks (GFC, COVID) present; no explicit dummies.
-   - Scenario shocks defined in level space for interpretability.
+   - Scenario shocks are entered in level terms for economic interpretation.
 """
     if diff_vars:
         if model_used == "vecm":
@@ -2173,6 +2164,11 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
         else:
             note += f"   - Variables differenced for estimation: {diff_vars}\n"
             note += "     Forecasts are cumulated back to levels for output.\n"
+            note += (
+                "   - For differenced series, scenario levels are mapped to the final\n"
+                "     transformed state (desired_level - last_level) before simulation,\n"
+                "     then converted back to level paths in saved outputs.\n"
+            )
 
     note += "\n================================================================================\n"
     path = os.path.join(OUTPUT_DIR, "methods_note.txt")

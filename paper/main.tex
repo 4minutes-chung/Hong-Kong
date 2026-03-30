@@ -17,7 +17,7 @@
 \onehalfspacing
 
 \title{External Shock Propagation to Hong Kong Under the Currency Board:\\
-A VAR Analysis of US Monetary Policy and China Growth Spillovers}
+A VAR Analysis of US Monetary Policy and China Nominal Growth Spillovers}
 \author{Steven Chung}
 \date{\today}
 
@@ -25,7 +25,7 @@ A VAR Analysis of US Monetary Policy and China Growth Spillovers}
 \maketitle
 
 \begin{abstract}
-How do US monetary policy shocks and China growth shocks propagate to
+How do US monetary policy shocks and China nominal growth shocks propagate to
 Hong Kong's real economy under the currency board? I estimate a
 six-variable quarterly VAR for Hong Kong (1998Q1--2023Q3) using data
 from Hong Kong's Census and Statistics Department, the HKMA, and FRED.
@@ -33,14 +33,14 @@ Three identification strategies are employed: Cholesky ordering,
 sign restrictions, and a VECM exploiting three cointegrating
 relationships among the I(1) subset (maximum rank $=3$ when $k=4$).
 
-The reduced-form VAR finds that China GDP growth explains 41\% of
+The reduced-form VAR finds that China nominal GDP growth explains 41\% of
 Hong Kong GDP forecast error variance at the two-year horizon, while
 the US federal funds rate explains 32\% of HIBOR variance. The VECM,
 which preserves the long-run currency board equilibrium, reveals a
 stronger US channel: the FFR explains 62\% of HIBOR and 36\%
 of unemployment variance. Sign-restricted IRFs confirm that a
 US monetary tightening raises HIBOR, depresses GDP, and increases
-unemployment, while a positive China growth shock boosts GDP and CPI.
+unemployment, while a positive China nominal growth shock boosts GDP and CPI.
 Time-varying parameter estimates show the China coefficient on
 Hong Kong GDP has strengthened since the GFC.
 
@@ -71,7 +71,7 @@ through trade, tourism, and financial linkages. This creates a natural
 tension: the interest rate channel is anchored to US conditions, while
 the real activity channel is driven by Chinese demand.
 
-This paper quantifies how US monetary policy shocks and China growth
+This paper quantifies how US monetary policy shocks and China nominal growth
 shocks propagate to Hong Kong's domestic economy. Using a six-variable
 quarterly VAR estimated on 1998Q1--2023Q3 data from official Hong Kong
 sources, I employ three identification strategies---Cholesky ordering,
@@ -88,25 +88,25 @@ The main findings are:
     differencing away the long-run peg equilibrium.
 
     \item \textbf{China dominates real activity, but less than expected.}
-    China GDP growth explains 41\% of Hong Kong GDP forecast error
+    China nominal GDP growth explains 41\% of Hong Kong GDP forecast error
     variance in the VAR and 28\% in the VECM. Own shocks remain large,
     suggesting substantial domestic business cycle dynamics.
 
     \item \textbf{Sign restrictions confirm the transmission channels.}
     Theory-consistent sign restrictions identify a US monetary tightening
-    shock that raises HIBOR and depresses GDP, and a China growth shock
+    shock that raises HIBOR and depresses GDP, and a China nominal growth shock
     that boosts GDP and CPI. The median IRFs are consistent with the
     Cholesky results.
 
     \item \textbf{Time-varying parameters show deepening China linkages.}
-    TVP-VAR estimates reveal that the China GDP coefficient on Hong Kong
+    TVP-VAR estimates reveal that the China nominal GDP coefficient on Hong Kong
     GDP has strengthened since the GFC, consistent with growing mainland
     economic integration.
 \end{enumerate}
 
 These results have direct policy relevance for HKMA's macroprudential
 toolkit: since the interest rate channel is imported and the dominant
-real shock source (China) cannot be offset by domestic monetary policy,
+nominal external demand shock source (China) cannot be offset by domestic monetary policy,
 fiscal and prudential instruments must bear the stabilization burden.
 
 % ==================================================================
@@ -178,10 +178,12 @@ Department's official quarterly figures via their public API.
 The unemployment rate is the seasonally adjusted 3-month moving average
 from C\&SD. The 3-month HIBOR is sourced directly from the HKMA's
 end-of-month fixing data, aggregated to quarterly means. The US federal
-funds rate and China GDP are from FRED. CPI inflation uses an official
+funds rate and China nominal GDP are from FRED. CPI inflation uses an official
 C\&SD monthly YoY splice where available (currently from 2020Q2 onward),
 with World Bank annual interpolation retained only as a fallback for
 earlier periods.
+Accordingly, references to the ``China shock'' in this paper should be interpreted
+as a nominal activity shock rather than a pure real-quantity shock.
 The replication package commits a fixed snapshot set in
 \texttt{output/} (\texttt{fevd\_table.csv},
 \texttt{model\_diagnostics.txt}, \texttt{vecm\_diagnostics.txt}, and
@@ -218,6 +220,9 @@ where \(y_t\) is the \(K \times 1\) vector of endogenous variables
 \(K \times K\) coefficient matrices, and \(u_t\) are reduced-form
 residuals. Lag order \(p = 2\) is selected by BIC subject to a
 parameter-count guardrail (19 parameters per equation, ratio 0.19).
+In the empirical hierarchy used below, this differenced VAR is treated as the
+short-horizon benchmark, while long-run interpretation under the currency board
+is anchored by the VECM that preserves cointegrating relations.
 
 \subsection{Cholesky Identification}
 
@@ -230,6 +235,8 @@ ordering follows the external-first convention:
 \]
 This ordering assumes that US and China variables do not respond
 contemporaneously to Hong Kong shocks (small open economy assumption).
+Therefore, Cholesky IRFs are interpreted as recursive-timing evidence, not as
+fully policy-invariant structural objects.
 
 \subsection{Sign Restrictions}
 
@@ -241,12 +248,13 @@ I draw 5,000 candidate rotations and retain those satisfying:
 \begin{itemize}
     \item \textbf{US monetary tightening:} FFR $\uparrow$, HIBOR $\uparrow$,
     GDP $\downarrow$, unemployment $\uparrow$ (on impact)
-    \item \textbf{China growth shock:} China GDP $\uparrow$, GDP $\uparrow$,
+    \item \textbf{China nominal growth shock:} China GDP $\uparrow$, GDP $\uparrow$,
     CPI $\uparrow$ (on impact)
 \end{itemize}
 
 The median and 68\% pointwise bands from the accepted draws provide
-set-identified IRFs.
+set-identified IRFs. Reported sign-restriction responses are medians across
+accepted rotations rather than point-identified structural coefficients.
 Because estimation applies first differences to selected variables,
 the sign restrictions are imposed on innovations in the transformed
 system; interpretation in levels is therefore local and model-based
@@ -265,6 +273,19 @@ contains the adjustment coefficients. The first cointegrating vector
 loads primarily on \texttt{us\_ffr} and \texttt{hibor\_3m} with
 coefficient $-1.16$, confirming the currency board equilibrium:
 HIBOR tracks FFR plus a stable spread.
+For this reason, VECM results are used as the primary evidence for
+long-run transmission claims, with the differenced VAR retained as a
+comparison model.
+
+\subsection{Scenario Forecast Mapping}
+
+Scenario shocks are defined in economically interpretable level terms
+(e.g., ``China nominal GDP growth \( -3\)pp''), then mapped into the
+estimated state representation before simulation. For variables estimated
+in first differences, the model conditions on
+\(\Delta x_T = x^{\star}_T - x_T\), where \(x^{\star}_T\) is the desired
+scenario level in the initial forecast quarter. Simulated paths are then
+cumulated back to levels before plotting and CSV export.
 
 \subsection{Time-Varying Parameters}
 
@@ -295,7 +316,7 @@ e_{j,t-s}
 \subsection{Granger Causality}
 
 Pairwise Granger causality tests confirm the expected transmission
-channels. China GDP Granger-causes HK GDP growth ($p = 0.020$),
+channels. China nominal GDP Granger-causes HK GDP growth ($p = 0.020$),
 CPI inflation ($p < 0.001$), and unemployment ($p < 0.001$).
 The US FFR Granger-causes CPI inflation ($p = 0.006$), unemployment
 ($p = 0.002$), and HIBOR ($p < 0.001$). The FFR also Granger-causes
@@ -305,7 +326,9 @@ external-rate channel to real activity in this sample.
 \subsection{FEVD: Who Drives What?}
 
 \Cref{tab:fevd} presents the FEVD at the 8-quarter horizon across
-three specifications.
+three specifications, where VAR and VECM columns should be read as
+complementary: VAR for short-run differenced dynamics, VECM for
+cointegration-consistent long-run propagation.
 
 \begin{table}[H]
 \centering
@@ -333,7 +356,7 @@ critically on how cointegration is handled:
 \begin{itemize}
     \item In the \textbf{reduced-form VAR} (which differences I(1)
     variables), the US FFR explains 32\% of HIBOR variance and 22\%
-    of unemployment. China GDP explains 41\% of HK GDP.
+    of unemployment. China nominal GDP explains 41\% of HK GDP.
 
     \item In the \textbf{VECM}, which preserves the long-run
     FFR--HIBOR peg equilibrium, the US channel strengthens notably:
@@ -357,7 +380,7 @@ The median IRFs show:
     100 basis points on impact, with the effect persisting for
     6--8 quarters. GDP growth declines by 0.3--0.5 percentage
     points, and unemployment rises gradually.
-    \item A positive China growth shock raises HK GDP by 0.5--1.0
+    \item A positive China nominal growth shock raises HK GDP by 0.5--1.0
     percentage points and CPI by 0.2--0.4 points, with effects
     concentrated in the first 4 quarters.
 \end{itemize}
@@ -373,7 +396,7 @@ economy weakness.
 
 \subsection{Time-Varying Parameters}
 
-The TVP-VAR reveals that the lag-1 coefficient of China GDP on
+The TVP-VAR reveals that the lag-1 coefficient of China nominal GDP on
 HK GDP growth has increased from approximately 0.05 in the early
 2000s to 0.15 by 2020, consistent with deepening trade and financial
 integration. The US FFR coefficient on HIBOR has remained relatively
@@ -414,7 +437,7 @@ FFR--HIBOR relationship is a structural feature of the monetary regime.
 % ==================================================================
 
 This paper provides a multi-method quantitative answer to how US and
-China shocks propagate to Hong Kong under the currency board. Three
+China nominal growth shocks propagate to Hong Kong under the currency board. Three
 key insights emerge.
 
 First, the standard VAR with Cholesky identification underestimates
@@ -423,7 +446,7 @@ relationship created by the currency board peg. The VECM, which
 preserves this equilibrium, reveals that the US FFR explains 62\% of
 HIBOR variance and 36\% of unemployment variance.
 
-Second, China GDP growth remains the dominant external driver of
+Second, China nominal GDP growth remains the dominant external driver of
 Hong Kong's real economy (28--41\% of GDP variance depending on
 specification),
 and this influence has strengthened since the GFC as measured by the
@@ -432,11 +455,11 @@ suggesting substantial domestic business cycle dynamics.
 
 Third, sign restrictions corroborate the Cholesky results: a US
 monetary tightening raises HIBOR, depresses GDP, and increases
-unemployment, while a positive China growth shock boosts GDP and CPI.
+unemployment, while a positive China nominal growth shock boosts GDP and CPI.
 
 These results have direct policy implications. Since the currency board
 imports US monetary conditions regardless of Hong Kong's cyclical
-position, and the dominant real shock source (China) cannot be offset
+position, and the dominant external nominal shock source (China) cannot be offset
 by domestic monetary policy, fiscal and macroprudential instruments
 must bear the primary stabilization burden.
 

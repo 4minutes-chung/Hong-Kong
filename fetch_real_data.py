@@ -236,16 +236,23 @@ def _fetch_cpi_mdt_for_ecode(ecode: str) -> pd.DataFrame | None:
         return None
 
 
-def fetch_hk_cpi_official(max_reports: int = 84) -> pd.DataFrame:
+def fetch_hk_cpi_official(max_reports: int = 360, max_empty_streak: int = 36) -> pd.DataFrame:
     """
     Fetch official HK composite CPI YoY from recent C&SD WBR issues.
     Combines unique monthly values across issues and returns quarterly mean.
     """
     pieces = []
+    empty_streak = 0
     for ecode in _build_recent_cpi_ecodes(max_reports=max_reports):
         m = _fetch_cpi_mdt_for_ecode(ecode)
         if m is not None and not m.empty:
             pieces.append(m)
+            empty_streak = 0
+        else:
+            empty_streak += 1
+            if empty_streak >= max_empty_streak and pieces:
+                # Stop probing very old issues after a long miss streak.
+                break
     if not pieces:
         return pd.DataFrame(columns=["cpi_inflation"])
 
@@ -256,7 +263,7 @@ def fetch_hk_cpi_official(max_reports: int = 84) -> pd.DataFrame:
     return monthly.resample("QS").mean().dropna()
 
 
-def fetch_hk_cpi() -> tuple[pd.DataFrame, str]:
+def fetch_hk_cpi() -> tuple[pd.DataFrame, str, pd.DataFrame]:
     """
     CPI construction strategy:
     1) Build long history from WB annual+spline
@@ -265,16 +272,30 @@ def fetch_hk_cpi() -> tuple[pd.DataFrame, str]:
     wb = fetch_hk_cpi_wb_fallback()
     official = fetch_hk_cpi_official()
     if official.empty:
-        return wb, "world_bank_spline_only"
+        lineage = pd.DataFrame(
+            {"source": "wb_spline"},
+            index=wb.index,
+        )
+        lineage.index.name = "date"
+        return wb, "world_bank_spline_only", lineage
 
-    merged = wb.copy()
-    overlap = official.index.intersection(merged.index)
-    if len(overlap):
-        merged.loc[overlap, "cpi_inflation"] = official.loc[overlap, "cpi_inflation"]
-        source = f"official_splice_{overlap.min().date()}_{overlap.max().date()}"
+    # Prefer official quarterly CPI where available; fall back to WB spline elsewhere.
+    merged = official.combine_first(wb).sort_index()
+    merged = merged[(merged.index >= "1998-01-01")]
+
+    lineage = pd.DataFrame({"source": "wb_spline"}, index=merged.index)
+    lineage.loc[merged.index.intersection(official.index), "source"] = "official"
+    lineage.index.name = "date"
+
+    official_idx = lineage.index[lineage["source"] == "official"]
+    if len(official_idx):
+        source = (
+            f"official_splice_{official_idx.min().date()}_{official_idx.max().date()}"
+            f"_share_{(lineage['source'] == 'official').mean():.2%}"
+        )
     else:
         source = "world_bank_spline_only_no_overlap"
-    return merged, source
+    return merged, source, lineage
 
 
 def build_dataset() -> pd.DataFrame:
@@ -300,7 +321,7 @@ def build_dataset() -> pd.DataFrame:
     print(f"       {len(china)} quarters")
 
     print("[6/6] HK CPI inflation (C&SD splice + WB fallback)...")
-    cpi, cpi_source = fetch_hk_cpi()
+    cpi, cpi_source, cpi_lineage = fetch_hk_cpi()
     print(f"       {len(cpi)} quarters ({cpi_source})")
 
     merged = gdp.join(cpi, how="outer")
@@ -315,12 +336,26 @@ def build_dataset() -> pd.DataFrame:
     merged = merged.dropna()
     merged.index.name = "date"
 
+    lineage_path = os.path.join(DATA_DIR, "cpi_lineage.csv")
+    cpi_lineage.to_csv(lineage_path)
+    official_share = float((cpi_lineage["source"] == "official").mean()) if len(cpi_lineage) else 0.0
+    official_idx = cpi_lineage.index[cpi_lineage["source"] == "official"]
+    official_window = (
+        f"{official_idx.min().date()} to {official_idx.max().date()}"
+        if len(official_idx) else "none"
+    )
+    print(f"       CPI lineage -> {lineage_path} (official share {official_share:.1%})")
+
     # Sidecar metadata for reproducibility
     meta = {
         "gdp_growth": "C&SD table 310-30001 (quarterly YoY %)",
-        "cpi_inflation": f"CPI source={cpi_source}; C&SD WBR CPI_R_2_01A where available, else WB spline",
+        "cpi_inflation": (
+            f"CPI source={cpi_source}; lineage_file=data/cpi_lineage.csv; "
+            f"official_window={official_window}; official_share={official_share:.1%}; "
+            "C&SD WBR CPI_R_2_01A where available, else WB spline"
+        ),
         "unemployment": "C&SD table 210-06101 (SAUR/UR M3M -> quarterly mean)",
-        "hibor_3m": "HKMA hibor.fixing endperiod API (monthly -> quarterly mean)",
+        "hibor_3m": "HKMA hibor.fixing endperiod API (monthly -> quarterly mean, primary path only)",
         "china_gdp": "FRED CHNGDPNQDSMEI nominal quarterly GDP -> YoY %",
         "us_ffr": "FRED FEDFUNDS monthly -> quarterly mean",
     }
