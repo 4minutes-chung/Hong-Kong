@@ -19,12 +19,11 @@ Variables (Cholesky ordering: external-first)
   hibor_3m      : 3-month HIBOR % (HKMA API) when real CSV; else US FFR + spread
 """
 
-import warnings
-warnings.filterwarnings("ignore")
-
 import os
 import json
 import argparse
+import warnings
+
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -36,6 +35,13 @@ from statsmodels.tsa.stattools import adfuller, grangercausalitytests, kpss
 from statsmodels.tsa.vector_ar.vecm import coint_johansen
 from statsmodels.stats.diagnostic import acorr_ljungbox
 from statsmodels.tsa.ar_model import AutoReg
+from statsmodels.tools.sm_exceptions import InterpolationWarning
+
+# Avoid blanket suppression: keep visibility for unexpected issues.
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
+warnings.filterwarnings("ignore", category=InterpolationWarning)
+warnings.filterwarnings("ignore", message=".*Glyph.*")
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__) or ".", "output")
 DATA_DIR = os.path.join(os.path.dirname(__file__) or ".", "data")
@@ -47,6 +53,8 @@ np.random.seed(SEED)
 _RNG_DATA = np.random.default_rng(SEED)
 _RNG_BOOT = np.random.default_rng(SEED + 1)
 
+# Column order for local CSV / synthetic DGP only. Estimation uses external-first
+# ordering from main() (us_ffr, china_gdp, then HK variables); see DEFAULT_ORDER.
 MODEL_VARIABLES = [
     "gdp_growth", "cpi_inflation", "unemployment",
     "hibor_3m", "china_gdp", "us_ffr",

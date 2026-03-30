@@ -12,7 +12,11 @@ Sources:
   us_ffr          : FRED FEDFUNDS monthly -> quarterly avg
 """
 
-import urllib.request, json, ssl, os, io
+import urllib.request
+import json
+import ssl
+import os
+import io
 from datetime import date
 import numpy as np
 import pandas as pd

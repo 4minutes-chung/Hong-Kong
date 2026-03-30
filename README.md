@@ -1,73 +1,74 @@
 # Hong Kong Quarterly VAR Macro Forecasting Model
 
-Reduced-form VAR model that forecasts core Hong Kong macroeconomic variables
-(GDP growth, CPI inflation, unemployment, HIBOR) using two external drivers
-(China nominal GDP YoY growth, US federal funds rate).
+Six-variable quarterly VAR/VECM pipeline for Hong Kong: external drivers (US effective federal funds rate, China nominal GDP growth) and domestic series (real GDP growth, CPI inflation, unemployment, 3-month HIBOR). Research focus: shock propagation under the currency board (Cholesky ordering is external-first by default).
 
 ## Quick start
 
 ```bash
 pip install -r requirements.txt
-python hk_var_model.py
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type var
 ```
 
-Optional controls:
+Recommended: **`--lag-criterion bic`** (parsimonious lags; AIC can pick many lags on short samples). Use `MPLCONFIGDIR` to avoid matplotlib cache warnings.
+
+## Common options
 
 ```bash
-python hk_var_model.py --lag-criterion bic --max-lags 8 --max-params-ratio 0.75
+# Same as project default checks
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --max-lags 8 --max-params-ratio 0.8 --model-type var
+
+# Bayesian VAR (Minnesota-style)
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type bvar --bvar-lambda1 0.2
+
+# VECM (Johansen rank; see --coint-rank, --vecm-deterministic)
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type vecm
+
+# Auto: VAR unless parameter load exceeds threshold, then BVAR
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --model-type auto --auto-bvar-threshold 0.18 --bvar-lambda1 0.2
 ```
 
-Model controls:
+## Variables and ordering
+
+**Estimation column order** (default Cholesky / recursive identification):  
+`us_ffr`, `china_gdp`, `gdp_growth`, `cpi_inflation`, `unemployment`, `hibor_3m`  
+Override with `--cholesky-order col1,col2,...`.
+
+**Transforms** are data-driven (ADF + KPSS): variables classified as unit-root are first-differenced for VAR/BVAR; VECM uses levels. The README table is illustrative only — see `output/model_diagnostics.txt` after a run.
+
+| Variable | Role |
+|----------|------|
+| `us_ffr` | US effective federal funds rate (%) |
+| `china_gdp` | China nominal quarterly GDP, YoY % (FRED `CHNGDPNQDSMEI`) |
+| `gdp_growth` | HK real GDP YoY % (official series when using real CSV) |
+| `cpi_inflation` | HK CPI YoY % |
+| `unemployment` | HK unemployment rate (%) |
+| `hibor_3m` | 3-month HIBOR (%) |
+
+## Pipeline (high level)
+
+1. **Data** — Prefer `data/hk_macro_quarterly_real.csv` (see `fetch_real_data.py`, `DATA_DOWNLOAD_CHECKLIST.md`); else FRED CSV endpoints; else calibrated synthetic data.
+2. **Diagnostics** — Stationarity (ADF + KPSS), lag selection (AIC/BIC + parameter guardrail), Johansen cointegration (for VECM reporting).
+3. **Estimation** — VAR (OLS), Minnesota BVAR, or VECM.
+4. **Structural** — Cholesky IRFs, FEVD, historical decomposition; optional sign-restriction IRFs; robustness (ordering, subsamples); exploratory TVP-VAR block.
+5. **Evaluation** — Expanding-window backtests vs AR(1) and random walk; scenario forecasts with residual bootstrap bands.
+
+## Outputs (`output/`)
+
+Key artifacts include `01_raw_data.png` … `10_subsample_stability.png`, `fevd_table.csv`, `forecast_scenarios.csv`, `model_diagnostics.txt`, `methods_note.txt`, `vecm_diagnostics.txt` (when VECM runs). Forecast dates start the **first quarter after** the last observation in the estimation sample.
+
+## Real data
+
+Provide `data/hk_macro_quarterly_real.csv` with columns  
+`date,gdp_growth,cpi_inflation,unemployment,hibor_3m,china_gdp,us_ffr`  
+(quarter-start dates). Loaded automatically unless `--no-local-real-data`.
+
+## Tests
 
 ```bash
-python hk_var_model.py --model-type auto --auto-bvar-threshold 0.18 --bvar-lambda 1.0
+pip install -r requirements-dev.txt
+MPLCONFIGDIR=/tmp/mpl_cfg python -m pytest tests/test_hk_var_model.py -v --tb=short
 ```
 
-## Variables
+## Paper
 
-| Variable | Description | Transform |
-|---|---|---|
-| `gdp_growth` | HK real GDP growth (YoY %) | level |
-| `cpi_inflation` | HK CPI inflation (YoY %) | level |
-| `unemployment` | HK unemployment rate (%) | first-differenced if non-stationary |
-| `hibor_3m` | 3-month HIBOR (%) | level |
-| `china_gdp` | China nominal GDP growth (YoY %) | level |
-| `us_ffr` | US effective federal funds rate (%) | first-differenced if non-stationary |
-
-## Pipeline
-
-1. **Data assembly** — tries FRED public CSV endpoints; falls back to a
-   calibrated synthetic dataset that matches Hong Kong's stylised macro facts.
-2. **Diagnostics** — ADF stationarity tests, AIC/BIC lag selection with
-   parameter-count guardrails, correlation analysis, and reproducibility report.
-3. **Estimation** — supports `VAR` (OLS) and `BVAR`-style ridge shrinkage; `auto`
-   mode switches to BVAR when parameter load is high.
-4. **Backtesting** — expanding-window out-of-sample evaluation vs AR(1) and
-   random-walk benchmarks (1Q and 4Q horizons).
-5. **Scenarios** — baseline forecast with bootstrapped 80 % confidence bands,
-   plus "weak external demand" and "global easing" shock paths.
-
-## Outputs (in `output/`)
-
-| File | Contents |
-|---|---|
-| `01_raw_data.png` | Panel chart of all six series |
-| `02_correlation.png` | Heatmap of transformed-series correlations |
-| `03_stability.png` | Companion-matrix eigenvalues vs unit circle |
-| `04_irf.png` | Full impulse-response function grid |
-| `05_backtest_h1.png` | RMSE bar chart, 1-quarter horizon |
-| `05_backtest_h4.png` | RMSE bar chart, 4-quarter horizon |
-| `06_scenario_forecast.png` | Scenario fan charts for HK domestic variables |
-| `forecast_scenarios.csv` | Tabular forecasts for all scenarios |
-| `data_dictionary.csv` | Variable-level source and transform metadata |
-| `model_diagnostics.txt` | Transform and lag-selection diagnostics |
-| `methods_note.txt` | Full methods note with assumptions and limitations |
-
-## Using real data
-
-Preferred: provide `data/hk_macro_quarterly_real.csv` with columns
-`date,gdp_growth,cpi_inflation,unemployment,hibor_3m,china_gdp,us_ffr`.
-The script will load it automatically unless `--no-local-real-data` is set.
-
-Fallback path: if local and FRED data are unavailable, the pipeline uses a
-calibrated synthetic dataset so estimation/testing still runs end-to-end.
+LaTeX draft under `paper/` (compile per project rules if you edit `.tex`/`.bib`).
