@@ -18,14 +18,14 @@ Use `--lag-criterion bic` (stable, 3 lags). AIC selects 8 lags which overparamet
 
 ## After any edit to tests
 
-When `tests/test_hk_var_model.py` or `hk_var_model.py` is modified, run:
+When `tests/` or `hk_var_model.py` is modified, run:
 
 ```bash
 cd "/Users/stevenchung/Desktop/P12B_File/Hong Kong"
-MPLCONFIGDIR=/tmp/mpl_cfg python -m pytest tests/test_hk_var_model.py -v --tb=short
+MPLCONFIGDIR=/tmp/mpl_cfg python -m pytest tests/ -v --tb=short
 ```
 
-All 59+ tests must pass. Fix any failures before proceeding.
+All tests must pass (70+; one guardrail may skip). Fix any failures before proceeding.
 
 ## After any edit to the paper
 

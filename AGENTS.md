@@ -15,6 +15,24 @@
 
 **Verification bundle:** `output/verification_report_2026.txt` — Super Codex checklist, model-review-math-econ, econometrics-modeling, code-reviewer, and test scope.
 
+**Independent audit (2026-03):** `audit.md` — process, verification, findings, prioritized next steps.
+
+---
+
+## Project memory: crucial data problem (what code cannot replace)
+
+This folder uses **`AGENTS.md`** (not `agent.md`) as the project memory for agents and humans.
+
+**The #1 data gap for a strong journal:** **HK CPI** is still partly built from **World Bank annual + interpolation**, with **official C&SD composite CPI YoY** only where the automated WBR/API path overlaps the sample. Code can **merge, splice, and write lineage** (`data/cpi_lineage.csv`, `data/source_metadata.json`); it **cannot** invent official pre-overlap monthly/quarterly history. **You** need either manual download from **C&SD / data.gov.hk** (full-history monthly or quarterly CPI YoY) or a vetted CSV placed under `data/` — then wire it in `fetch_real_data.py` or document the drop-in schema. See **`DATA_DOWNLOAD_CHECKLIST.md`** and **`DATA_DOWNLOAD.md`**.
+
+**Second gap (interpretation, not a coding bug):** **`china_gdp`** is **nominal** quarterly GDP YoY (FRED `CHNGDPNQDSMEI`). Claims about **“real mainland activity”** require a **real** China quarterly series (NBS, IMF, etc.) — often **manual download** or licensed data — plus coordinated renames in paper and `MODEL_VARIABLES` if you add a column.
+
+**HIBOR:** Primary path is **HKMA API** in `fetch_real_data.py`; not the top manual-download blocker unless the API fails in your network.
+
+**Major vs manageable:** For **top-tier submission**, CPI + (optional) real China are **major** data lifts. For a **working paper**, it is **manageable** if limitations and nominal China wording are explicit (see paper and `output/methods_note.txt`).
+
+**Not a download issue:** Mismatches between committed **`output/*`** and a fresh run are **snapshot hygiene** (commit dataset + outputs together). Fix by regenerating from canonical `data/hk_macro_quarterly_real.csv` and committing one coherent bundle.
+
 ---
 
 ## 1. Project Overview
@@ -150,7 +168,7 @@ Implemented two structural analysis functions:
 
 ### Phase 9: Unit Test Suite
 
-60 tests in `tests/test_hk_var_model.py` covering:
+70+ tests in `tests/` (`test_hk_var_model.py` plus `test_scenario_utils.py` for extracted helpers) covering:
 
 | Test class | Count | Coverage |
 |---|---|---|
@@ -170,8 +188,9 @@ Implemented two structural analysis functions:
 | TestGrangerCausality | 1 | Returns list with expected fields |
 | TestFEVD | 4 | Shape, sums to 1, non-negative, own-shock dominant |
 | TestHistoricalDecomposition | 3 | Dict keys, contributions shape, shocks shape |
+| TestScenarioUtilsDirect | 7 | Direct `invert_transforms` / `shock_in_level_space` parity |
 
-**Result:** 59 passed, 1 skipped (guardrail test skips when AIC picks lag=1)
+**Result:** all pass except one skipped guardrail (AIC may pick lag=1 on synthetic data)
 
 ### Phase 10: LaTeX Paper Draft
 
@@ -188,7 +207,7 @@ Full evaluation in `output/econometric_evaluation.txt` using `econ-answering` an
 **Strengths:**
 - Correct pipeline: stationarity → cointegration → lag selection → estimation → FEVD → historical decomp → backtest
 - 16 mathematical audit issues identified and fixed across 2 rounds
-- 60 unit tests passing
+- 70+ unit tests passing
 - Both VAR and BVAR compared
 - Robustness across 3 Cholesky orderings and 4 sub-samples
 
@@ -214,10 +233,16 @@ Created `.cursor/rules/hk-var-auto-run.mdc` to automatically run:
 
 ```
 Hong Kong/
-├── hk_var_model.py                    # Main model (1592 lines)
+├── hk_var_model.py                    # Main pipeline (~2540 lines)
+├── hk_var/
+│   ├── __init__.py
+│   └── scenario_utils.py              # Scenario forecast transforms (imported by main script)
+├── fetch_real_data.py                 # Official/API data → hk_macro_quarterly_real.csv
 ├── tests/
 │   ├── __init__.py
-│   └── test_hk_var_model.py           # 60 tests (59 pass, 1 skip)
+│   ├── test_hk_var_model.py           # Core model tests
+│   └── test_scenario_utils.py         # Direct tests for scenario_utils
+├── pytest.ini                         # Pytest defaults / warning filters
 ├── data/
 │   ├── hk_macro_quarterly.csv         # Working dataset (copied from real or synthetic)
 │   └── hk_macro_quarterly_real.csv    # Real data: WB annual→quarterly spline + FRED FFR
@@ -249,8 +274,10 @@ Hong Kong/
 │   └── (aux/log/bbl/blg/out/toc)     # LaTeX build artifacts
 ├── IMPLEMENTATION_PLAN.md             # 4-phase plan document
 ├── AGENTS.md                          # This file
+├── audit.md                           # Independent audit / verification notes
 ├── README.md                          # Quick-start guide
 ├── requirements.txt                   # Python dependencies
+├── requirements-dev.txt               # pytest, ruff (see README)
 └── .cursor/rules/
     └── hk-var-auto-run.mdc            # Auto-run rule for pipeline/tests/LaTeX
 ```
@@ -411,7 +438,7 @@ Commit reproducibility snapshots together with code/docs at checkpoints:
 | Mar 2026 | Real data ingestion | WB annual + FRED FFR → cubic spline quarterly |
 | Mar 2026 | FEVD + historical decomp | Structural analysis answering the research question |
 | Mar 2026 | Robustness checks | 3 Cholesky orderings + 4 sub-samples |
-| Mar 2026 | Unit tests | 60 tests written, 59 pass |
+| Mar 2026 | Unit tests | 70+ tests; scenario helpers tested directly and via model |
 | Mar 2026 | LaTeX paper draft | Full paper with abstract, lit review, results, robustness |
 | Mar 2026 | Econometric evaluation | B+ grade; data limitations prevent A |
 | Mar 2026 | Auto-run rule | Pipeline/test/LaTeX auto-execution on file changes |

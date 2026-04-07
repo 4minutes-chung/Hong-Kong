@@ -9,6 +9,8 @@ pip install -r requirements.txt
 MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type var
 ```
 
+For **linting and the full test suite**, also run `pip install -r requirements-dev.txt` (pytest, ruff).
+
 Recommended: **`--lag-criterion bic`** (parsimonious lags; AIC can pick many lags on short samples). Use `MPLCONFIGDIR` to avoid matplotlib cache warnings.
 
 ## Common options

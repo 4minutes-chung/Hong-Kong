@@ -13,6 +13,7 @@ Sources:
 """
 
 import urllib.request
+import urllib.error
 import json
 import ssl
 import os
@@ -21,6 +22,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline
+from pandas.errors import EmptyDataError, ParserError
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -232,7 +234,18 @@ def _fetch_cpi_mdt_for_ecode(ecode: str) -> pd.DataFrame | None:
         df = df.dropna(subset=["date"])
         df = df.set_index("date").sort_index()
         return df[["obs_value"]].rename(columns={"obs_value": "cpi_inflation"})
-    except Exception:
+    except (
+        urllib.error.URLError,
+        urllib.error.HTTPError,
+        OSError,
+        ssl.SSLError,
+        json.JSONDecodeError,
+        ValueError,
+        KeyError,
+        TypeError,
+        ParserError,
+        EmptyDataError,
+    ):
         return None
 
 
