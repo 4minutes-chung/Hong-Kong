@@ -23,9 +23,11 @@ import os
 import json
 import argparse
 import warnings
+import urllib.error
 
 import numpy as np
 import pandas as pd
+from pandas.errors import EmptyDataError, ParserError
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -164,7 +166,7 @@ def fit_bvar_minnesota(df: pd.DataFrame, lags: int,
         try:
             ar = AutoReg(df.iloc[:, j].values, lags=min(lags, 4)).fit()
             sigma_ar[j] = np.std(ar.resid)
-        except Exception:
+        except (ValueError, TypeError, np.linalg.LinAlgError):
             sigma_ar[j] = np.std(df.iloc[:, j].values)
     sigma_ar = np.maximum(sigma_ar, 1e-8)
 
@@ -368,7 +370,16 @@ def _try_fetch_fred(series_id: str, start: str = "1998-01-01") -> pd.Series | No
         s = df.iloc[:, 0].dropna()
         s.name = series_id
         return s
-    except Exception:
+    except (
+        urllib.error.URLError,
+        urllib.error.HTTPError,
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        ParserError,
+        EmptyDataError,
+    ):
         return None
 
 
