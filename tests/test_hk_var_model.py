@@ -47,6 +47,7 @@ def sample_transforms():
         "hibor_3m": {"transform": "level", "last_level": 2.5},
         "china_gdp": {"transform": "level", "last_level": 7.0},
         "us_ffr": {"transform": "first_diff", "last_level": 3.0},
+        "hk_exports_china_yoy": {"transform": "level", "last_level": 5.0},
     }
 
 
@@ -56,7 +57,7 @@ def sample_transforms():
 
 class TestGenerateCalibratedData:
     def test_shape(self, synthetic_data):
-        assert synthetic_data.shape == (104, 6)
+        assert synthetic_data.shape == (104, len(m.MODEL_VARIABLES))
 
     def test_columns(self, synthetic_data):
         assert list(synthetic_data.columns) == m.MODEL_VARIABLES
@@ -100,6 +101,20 @@ class TestLoadLocalData:
         csv.write_text("date,gdp_growth\n2020-01-01,3.0\n")
         with pytest.raises(ValueError, match="missing required columns"):
             m._load_local_quarterly_data(str(csv))
+
+    def test_property_extension_can_be_loaded(self, tmp_path):
+        dates = pd.date_range("2020-01-01", periods=4, freq="QS")
+        df = pd.DataFrame({"date": dates})
+        for i, col in enumerate(m.PROPERTY_MODEL_VARIABLES):
+            df[col] = i + np.arange(len(dates))
+        csv = tmp_path / "property.csv"
+        df.to_csv(csv, index=False)
+        loaded = m._load_local_quarterly_data(
+            str(csv),
+            variables=m.PROPERTY_MODEL_VARIABLES,
+        )
+        assert list(loaded.columns) == m.PROPERTY_MODEL_VARIABLES
+        assert m.PROPERTY_VARIABLE in loaded.columns
 
 
 # ============================================================
@@ -164,6 +179,10 @@ class TestCompanionMatrix:
         C = m._companion_matrix(coefs)
         eigvals = np.abs(np.linalg.eigvals(C))
         assert eigvals.max() < 1.0
+
+    def test_vecm_unit_root_label_is_non_explosive(self):
+        label = m._stability_label(1.0, "vecm")
+        assert "NON-EXPLOSIVE" in label
 
 
 # ============================================================
@@ -328,10 +347,11 @@ class TestInvertTransforms:
         assert np.allclose(result[:, 1], [5.5, 5.0])
 
     def test_preserves_shape(self):
-        fc = np.random.randn(8, 6)
+        k = len(m.MODEL_VARIABLES)
+        fc = np.random.randn(8, k)
         transforms = {v: {"transform": "level", "last_level": 0.0} for v in m.MODEL_VARIABLES}
         result = m._invert_transforms(fc, m.MODEL_VARIABLES, transforms)
-        assert result.shape == (8, 6)
+        assert result.shape == (8, k)
 
 
 # ============================================================
@@ -440,7 +460,15 @@ class TestForecastScenarios:
         scenarios = m.forecast_scenarios(model, synthetic_data, 1,
                                           sample_transforms, horizon=4)
         assert "baseline" in scenarios
-        assert scenarios["baseline"].shape == (4, 6)
+        assert scenarios["baseline"].shape == (4, len(m.MODEL_VARIABLES))
+
+    def test_forecast_with_exog_dummies(self, synthetic_data, sample_transforms):
+        from statsmodels.tsa.api import VAR as StatsVAR
+        exog = m._make_crisis_dummies(synthetic_data.index)
+        model = StatsVAR(synthetic_data, exog=exog).fit(1)
+        scenarios = m.forecast_scenarios(model, synthetic_data, 1,
+                                          sample_transforms, horizon=2)
+        assert scenarios["baseline"].shape == (2, len(m.MODEL_VARIABLES))
 
     def test_all_scenario_keys(self, synthetic_data, sample_transforms):
         from statsmodels.tsa.api import VAR as StatsVAR
@@ -459,6 +487,22 @@ class TestForecastScenarios:
         lo = scenarios["baseline_lo"].values
         hi = scenarios["baseline_hi"].values
         assert np.all(lo <= hi + 1e-6)
+
+    def test_scenario_directions_at_first_horizon(self, synthetic_data):
+        from statsmodels.tsa.api import VAR as StatsVAR
+        model = StatsVAR(synthetic_data).fit(1)
+        transforms = {
+            col: {"transform": "level", "last_level": float(synthetic_data[col].iloc[-1])}
+            for col in synthetic_data.columns
+        }
+        scenarios = m.forecast_scenarios(model, synthetic_data, 1, transforms, horizon=4)
+        base_t1 = scenarios["baseline"].iloc[0]
+        weak_t1 = scenarios["weak_external"].iloc[0]
+        ease_t1 = scenarios["global_easing"].iloc[0]
+        assert weak_t1["china_gdp"] < base_t1["china_gdp"]
+        assert weak_t1["us_ffr"] > base_t1["us_ffr"]
+        assert ease_t1["china_gdp"] > base_t1["china_gdp"]
+        assert ease_t1["us_ffr"] < base_t1["us_ffr"]
 
 
 # ============================================================
@@ -543,6 +587,15 @@ class TestHistoricalDecomposition:
         k = small_var_data.shape[1]
         assert hd["structural_shocks"].shape == (T, k)
 
+    def test_reconstructs_from_base_plus_contributions(self, small_var_data):
+        result = m.fit_bvar_minnesota(small_var_data, lags=1)
+        hd = m.compute_historical_decomposition(result, small_var_data,
+                                                 list(small_var_data.columns))
+        recon = hd["base"] + hd["contributions"].sum(axis=2)
+        observed = small_var_data.values[-result.nobs:]
+        assert recon.shape == observed.shape
+        assert np.allclose(recon, observed, atol=1e-5)
+
 
 # ============================================================
 # Sign restrictions & TVP-VAR (merged worktrees)
@@ -597,6 +650,18 @@ class TestDefaultSignTable:
         assert st["us_monetary"]["us_ffr"] == 1
         assert st["us_monetary"]["gdp_growth"] == -1
         assert st["china_growth"]["china_gdp"] == 1
+
+    def test_property_sign_restrictions_are_available(self):
+        st = m.default_sign_table()
+        assert st["us_monetary"][m.PROPERTY_VARIABLE] == -1
+        assert st["china_growth"][m.PROPERTY_VARIABLE] == 1
+
+
+class TestResponseTargets:
+    def test_property_included_when_present(self):
+        targets = m.hk_response_targets(["gdp_growth", m.PROPERTY_VARIABLE, "us_ffr"])
+        assert "gdp_growth" in targets
+        assert m.PROPERTY_VARIABLE in targets
 
 
 # ============================================================
@@ -683,3 +748,17 @@ class TestVecmDeterministicAndBacktest:
         if not out.empty:
             required = {"variable", "horizon", "RMSE_VAR", "RMSE_VECM", "RMSE_winner"}
             assert required.issubset(set(out.columns))
+
+    def test_vecm_ci_forecast_matches_statsmodels_predict(self, vecm_ready_data):
+        res = m.fit_vecm(
+            vecm_ready_data,
+            lags_diff=1,
+            coint_rank=1,
+            deterministic="ci",
+            verbose=False,
+        )
+        hist = vecm_ready_data.values[-res.k_ar:]
+        wrapped_fc = res.forecast(hist, steps=5)
+        native_fc = res._vecm.predict(steps=5)
+        assert wrapped_fc.shape == native_fc.shape
+        assert np.allclose(wrapped_fc, native_fc, atol=1e-8)

@@ -1,7 +1,9 @@
 variable,available_in_sample,source_used,series_id,frequency,target_transform
 gdp_growth,True,C&SD table 310-30001 (quarterly YoY %),NGDPRSAXDCHKQ,quarterly,yoy_pct
-cpi_inflation,True,"CPI source=official_splice_2020-04-01_2026-01-01_share_21.24%; lineage_file=data/cpi_lineage.csv; official_window=2020-04-01 to 2026-01-01; official_share=21.2%; C&SD WBR CPI_R_2_01A where available, else WB spline",CPALCY01HKQ661S,quarterly,yoy_pct
-unemployment,True,C&SD table 210-06101 (SAUR/UR M3M -> quarterly mean),LMUNRRTTHKQ156S,quarterly,level_pct
-hibor_3m,True,"HKMA hibor.fixing endperiod API (monthly -> quarterly mean, primary path only)",n/a,quarterly,level_pct
-china_gdp,True,FRED CHNGDPNQDSMEI nominal quarterly GDP -> YoY %,CHNGDPNQDSMEI,quarterly,yoy_pct
+cpi_inflation,True,CPI source=official_censtatd_510_60001_1998-01-01_2026-01-01; lineage_file=data/cpi_lineage.csv; official_window=1998-01-01 to 2026-01-01; official_share_full=100.0%; official_share_sample=100.0%; C&SD table 510-60001 Composite CPI YoY monthly -> quarterly mean; WB annual spline only if official CPI unavailable,CPALCY01HKQ661S,quarterly,yoy_pct
+unemployment,True,"C&SD table 210-06101 (SAUR/UR M3M -> quarterly end-of-quarter last, avoids double-smoothing of overlapping M3M windows)",LMUNRRTTHKQ156S,quarterly,level_pct
+hibor_3m,True,HKMA hibor.fixing endperiod API (monthly -> quarterly mean); falls back to data/hibor_3m_quarterly.csv or the existing canonical panel if HKMA temporarily times out,n/a,quarterly,level_pct
+china_gdp,True,"OECD QNA CHN.B1_GE.GPSA.Q, B1GQ (GDP at market prices), GY transformation (YoY % growth), quarterly; falls back to FRED CHNGDPNQDSMEI nominal CNY GDP YoY if OECD unavailable",CHNGDPNQDSMEI,quarterly,yoy_pct
 us_ffr,True,FRED FEDFUNDS monthly -> quarterly mean,FEDFUNDS,monthly->quarterly,level_pct
+hk_exports_china_yoy,True,"C&SD table 410-50013: total exports to Chinese Mainland, monthly YoY % -> quarterly mean; cached to data/hk_exports_china_quarterly.csv",410-50013,monthly->quarterly,yoy_pct
+hk_property_price_idx,True,"RVD/data.gov.hk 1.4M official All Classes private domestic price index, monthly -> quarterly mean",1.4M,monthly->quarterly,index_level

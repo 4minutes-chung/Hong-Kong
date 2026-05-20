@@ -1,63 +1,57 @@
-# Data handoff: preferences, known issues, and manual download checklist
+# Data Handoff
 
-Use this when replacing API fetches with **files you download tomorrow** (or when APIs fail). The pipeline reads **`data/hk_macro_quarterly_real.csv`** first if present (`assemble_data(prefer_local_real_data=True)`).
+The pipeline loads `data/hk_macro_quarterly_real.csv` first. If that file exists, the old FRED fallback path is mostly irrelevant.
 
----
+## Canonical CSV Schema
 
-## 1. Preferred source hierarchy (by variable)
+Required columns:
 
-| Column | Preferred | Fallback | Current gap |
-|--------|-----------|----------|-------------|
-| `gdp_growth` | C&SD Table **310-30001**, quarterly, **Total**, YoY % real | — | API works; keep CSV backup |
-| `unemployment` | C&SD Table **210-06101**, **SAUR** or **UR**, **M3M**, **Total** | UR if SA sparse | API works; align to **QS** mean |
-| `hibor_3m` | HKMA **end-of-period** HIBOR fixing, field `ir_3m`, monthly → **QS** mean | HKAB published series | API works |
-| `us_ffr` | FRED **FEDFUNDS**, monthly → **QS** mean | — | Stable |
-| `china_gdp` | **Real** China quarterly YoY % (NBS / Haver / CEIC) | FRED **CHNGDPNQDSMEI** nominal → YoY % | Nominal ≠ real; label clearly in paper |
-| `cpi_inflation` | C&SD **CPI** quarterly or monthly YoY **Composite** | WB annual `FP.CPI.TOTL.ZG` + spline | **Weakest series** — spline injects artificial dynamics |
+```text
+date,gdp_growth,cpi_inflation,unemployment,hibor_3m,china_gdp,us_ffr,hk_exports_china_yoy
+```
 
-**Priority for your manual work:** fix **`cpi_inflation`** first (only interpolated series), then replace **`china_gdp`** with real quarterly **real** growth if you have access.
+Rules:
 
----
+- `date` is the first day of each quarter, e.g. `1998-01-01` for 1998Q1.
+- All rates are in percent, not decimals.
+- No missing values in the merged estimation sample.
+- Keep `data/source_metadata.json` synchronized with the CSV.
 
-## 2. Required CSV schema (for `hk_macro_quarterly_real.csv`)
+## Current Source Hierarchy
 
-- **Index or column `date`:** first day of quarter, e.g. `1998-01-01` = 1998Q1 (`QS` frequency).
-- **Columns (all numeric, same length):**
-  - `gdp_growth`, `cpi_inflation`, `unemployment`, `hibor_3m`, `china_gdp`, `us_ffr`
-- **Units:** rates in **percent** (e.g. 3.5 means 3.5%), not decimals.
-- **No missing values** in the merged sample (pipeline drops rows with any NaN).
+| Column | Preferred source | Current status |
+|---|---|---|
+| `gdp_growth` | C&SD table 310-30001 | Good |
+| `cpi_inflation` | C&SD table 510-60001 Composite CPI YoY monthly -> quarterly mean | Good |
+| `unemployment` | C&SD table 210-06101, end-of-quarter M3M reading | Good |
+| `hibor_3m` | HKMA HIBOR fixing API, monthly -> quarterly mean | Good; cached fallback if HKMA times out |
+| `us_ffr` | FRED `FEDFUNDS`, monthly -> quarterly mean | Good |
+| `china_gdp` | OECD QNA China real GDP YoY (`B1GQ`, `GY`) | Good if OECD source succeeds; FRED nominal fallback must be labelled |
+| `hk_exports_china_yoy` | C&SD table 410-50013, total exports to Chinese Mainland | Integrated |
 
-Loader: `_load_local_quarterly_data()` in `hk_var_model.py` (expects `date` + required columns).
+## Sidecar Data Not In Baseline
 
----
+| File | Use |
+|---|---|
+| `data/hk_property_price_rvd_monthly.csv` | Official RVD monthly private domestic price indices by class |
+| `data/hk_property_price_rvd_quarterly.csv` | Official RVD quarterly property-price sidecar; main column is `hk_property_price_idx`, the All Classes index |
+| `data/hk_macro_quarterly_property_extension.csv` | Canonical macro panel merged with the full property sidecar |
+| `data/hk_macro_quarterly_property_model.csv` | Model-ready macro-property panel, 1999Q1-2026Q1, with `hk_property_price_yoy` and `hk_property_price_qoq` |
+| `data/property_source_metadata.json` | Source lineage for the RVD property files |
+| `data/us_mp_shock_quarterly.csv` | Optional cleaner US monetary-policy shock, but sample ends 2019Q4 |
+| `data/china_real_gdp_quarterly.csv` | Backup/check file for China real GDP through 2023Q3 |
 
-## 3. Known problems (API / environment)
+## Rebuild Data
 
-| Issue | Effect | Mitigation |
-|-------|--------|------------|
-| C&SD `get.php` **403** without browser-like headers | Fetch fails | `fetch_real_data.py` uses User-Agent; if still blocked, download CSV from data.gov.hk manually |
-| **SSL verify off** in `fetch_real_data.py` | MITM risk on untrusted networks | Use only on trusted networks; for production, enable cert verification and pin CA |
-| FRED HK quarterly IDs **404** in some environments | Falls back to synthetic if no local CSV | Keep `hk_macro_quarterly_real.csv` under version control or regenerate via `fetch_real_data.py` |
-| China **nominal** GDP (FRED) | YoY % is not real growth | Document in methods; replace with real GDP when available |
-| CPI **annual → spline** | Smooths high-frequency noise; may distort VAR dynamics | Replace with official quarterly/monthly CPI inflation |
-| HKMA economic stats endpoint | Short history (~2021+) | **Do not** use for long history; use C&SD + HKMA HIBOR as in `fetch_real_data.py` |
+```bash
+python fetch_real_data.py
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type var
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --include-property --model-type vecm --lag-criterion bic
+MPLCONFIGDIR=/tmp/mpl_cfg python -m pytest tests/ -q --tb=short
+```
 
----
+Before using results, confirm `data/source_metadata.json` says whether `china_gdp` came from OECD real GDP or FRED nominal fallback.
 
-## 4. Tomorrow: minimal manual steps
+Property source: RVD/data.gov.hk `1.4M.csv`, Private Domestic - Price Indices by Class (Territory-wide) [Monthly]. Use the official `All Classes` index, not a hand-made average of classes.
 
-1. Export **C&SD CPI** (composite, YoY % preferred) at **quarterly** or monthly→quarterly average.
-2. If possible, obtain **China real GDP quarterly YoY** from your data vendor (replace FRED nominal series).
-3. Save as Excel/CSV, align dates to **QS**, merge with existing columns, **sort by date**.
-4. Overwrite `data/hk_macro_quarterly_real.csv` (keep a dated backup).
-5. Run: `python fetch_real_data.py` (refresh) **or** only replace CPI column in CSV if APIs are flaky.
-6. Run: `MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type var`
-7. Run: `pytest tests/ -q`
-
----
-
-## 5. Documentation to update after new data
-
-- `paper/main.tex` — Data section, limitations.
-- `output/methods_note.txt` — regenerated by pipeline.
-- `AGENTS.md` — audit trail row.
+Property model convention: the baseline remains seven variables. The property-channel VECM is activated explicitly with `--include-property`, which adds `hk_property_price_idx` from the official RVD All Classes index.

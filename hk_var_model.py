@@ -2,7 +2,7 @@
 Hong Kong Quarterly VAR Macro Forecasting Model
 ================================================
 Research question:
-  "How do US monetary policy shocks and China nominal growth shocks propagate
+  "How do US monetary policy shocks and China growth shocks transmit
    to Hong Kong's real economy under the currency board?"
 
 Pipeline: data assembly -> diagnostics -> estimation -> FEVD ->
@@ -11,12 +11,15 @@ Pipeline: data assembly -> diagnostics -> estimation -> FEVD ->
 
 Variables (Cholesky ordering: external-first)
 ---------
-  us_ffr        : US effective federal funds rate (%); FRED monthly -> quarterly mean
-  china_gdp     : China nominal GDP YoY % (FRED CHNGDPNQDSMEI; prefer real-series upgrade — DATA_DOWNLOAD_CHECKLIST.md)
-  gdp_growth    : HK real GDP YoY % (C&SD 310-30001) when hk_macro_quarterly_real.csv
-  cpi_inflation : HK CPI YoY % — prefer C&SD; else World Bank annual + spline (fetch_real_data.py)
-  unemployment  : HK % (C&SD 210-06101, M3M SAUR/UR) when real CSV
-  hibor_3m      : 3-month HIBOR % (HKMA API) when real CSV; else US FFR + spread
+  us_ffr               : US effective federal funds rate (%); FRED monthly -> quarterly mean
+  china_gdp            : China real GDP YoY % (OECD QNA B1GQ GY; FRED nominal fallback)
+  hk_exports_china_yoy : HK total exports to Chinese Mainland YoY % (C&SD 410-50013)
+  gdp_growth           : HK real GDP YoY % (C&SD 310-30001)
+  cpi_inflation        : HK CPI YoY % (C&SD 510-60001; WB spline fallback)
+  unemployment         : HK % (C&SD 210-06101, M3M end-of-quarter)
+  hibor_3m             : 3-month HIBOR % (HKMA API)
+  hk_property_price_idx: RVD private domestic property price index; optional
+                         macro-finance transmission channel
 """
 
 import os
@@ -34,7 +37,8 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from statsmodels.tsa.api import VAR
 from statsmodels.tsa.stattools import adfuller, grangercausalitytests, kpss
-from statsmodels.tsa.vector_ar.vecm import coint_johansen
+from statsmodels.tsa.vector_ar.vecm import coint_johansen, _linear_trend
+from statsmodels.tsa.vector_ar.var_model import forecast as _var_forecast
 from statsmodels.stats.diagnostic import acorr_ljungbox
 from statsmodels.tsa.ar_model import AutoReg
 from statsmodels.tools.sm_exceptions import InterpolationWarning
@@ -63,11 +67,13 @@ _RNG_BOOT = np.random.default_rng(SEED + 1)
 # ordering from main() (us_ffr, china_gdp, then HK variables); see DEFAULT_ORDER.
 MODEL_VARIABLES = [
     "gdp_growth", "cpi_inflation", "unemployment",
-    "hibor_3m", "china_gdp", "us_ffr",
+    "hibor_3m", "china_gdp", "us_ffr", "hk_exports_china_yoy",
 ]
+PROPERTY_VARIABLE = "hk_property_price_idx"
+PROPERTY_MODEL_VARIABLES = MODEL_VARIABLES + [PROPERTY_VARIABLE]
 
 # NOTE: Series IDs below are fallbacks when local CSV is absent; many HK FRED IDs return 404.
-# Prefer data/hk_macro_quarterly_real.csv from fetch_real_data.py (see DATA_DOWNLOAD_CHECKLIST.md).
+# Prefer data/hk_macro_quarterly_real.csv from fetch_real_data.py (see DATA_DOWNLOAD.md).
 DATA_SPEC = {
     "gdp_growth": {
         "source": "FRED", "series_id": "NGDPRSAXDCHKQ",
@@ -97,6 +103,16 @@ DATA_SPEC = {
     "hibor_3m": {
         "source": "derived", "series_id": "n/a",
         "frequency": "quarterly", "target_transform": "level_pct",
+        "needs_pct_change": False,
+    },
+    "hk_exports_china_yoy": {
+        "source": "censtatd", "series_id": "410-50013",
+        "frequency": "monthly->quarterly", "target_transform": "yoy_pct",
+        "needs_pct_change": False,
+    },
+    "hk_property_price_idx": {
+        "source": "RVD/data.gov.hk", "series_id": "1.4M",
+        "frequency": "monthly->quarterly", "target_transform": "index_level",
         "needs_pct_change": False,
     },
 }
@@ -152,13 +168,48 @@ def _build_lagged_design(df: pd.DataFrame, lags: int):
     return X, Y
 
 
+def _make_crisis_dummies(index: pd.DatetimeIndex) -> np.ndarray:
+    """Return (n, 2) pulse dummy matrix: col 0 = GFC (2008Q4-2009Q2), col 1 = COVID (2020Q1-2020Q2).
+    No shrinkage is applied to these columns in the BVAR prior (OLS treatment)."""
+    n = len(index)
+    dummies = np.zeros((n, 2))
+    for i, dt in enumerate(index):
+        ts = pd.Timestamp(dt)
+        if pd.Timestamp("2008-10-01") <= ts <= pd.Timestamp("2009-04-01"):
+            dummies[i, 0] = 1.0
+        if pd.Timestamp("2020-01-01") <= ts <= pd.Timestamp("2020-04-01"):
+            dummies[i, 1] = 1.0
+    return dummies
+
+
 def fit_bvar_minnesota(df: pd.DataFrame, lags: int,
                        lambda1: float = 0.2, lambda2: float = 0.5,
-                       lambda3: float = 1.0) -> MinnesotaVARResults:
+                       lambda3: float = 1.0,
+                       exog: np.ndarray | None = None) -> MinnesotaVARResults:
     """Fit BVAR with Minnesota-style diagonal prior, equation by equation."""
     X, Y = _build_lagged_design(df, lags)
-    nobs, ncoef = X.shape
+    nobs_base, ncoef_base = X.shape
     k = Y.shape[1]
+
+    # Append exogenous columns (e.g. crisis dummies) with zero prior precision (OLS treatment).
+    # Indices beyond 1+k*lags are left at 0 in prior_prec_diag, so no shrinkage is applied.
+    # All-zero columns (crisis period not in sample) are dropped to prevent singularity.
+    if exog is not None:
+        exog_arr = np.asarray(exog, dtype=float)
+        if exog_arr.ndim == 1:
+            exog_arr = exog_arr.reshape(-1, 1)
+        exog_trimmed = exog_arr[lags:]
+        if exog_trimmed.shape[0] != nobs_base:
+            raise ValueError(
+                f"exog rows after trimming ({exog_trimmed.shape[0]}) != "
+                f"estimation rows ({nobs_base})"
+            )
+        active = np.abs(exog_trimmed).sum(axis=0) > 0
+        exog_trimmed = exog_trimmed[:, active]
+        if exog_trimmed.shape[1] > 0:
+            X = np.hstack([X, exog_trimmed])
+
+    nobs, ncoef = X.shape
 
     # Get scaling from univariate AR residual std devs
     sigma_ar = np.zeros(k)
@@ -184,6 +235,7 @@ def fit_bvar_minnesota(df: pd.DataFrame, lags: int,
                 else:
                     v = (lambda1 * lambda2 * sigma_ar[i] / (lag ** lambda3 * sigma_ar[j])) ** 2
                 prior_prec_diag[idx] = 1.0 / max(v, 1e-12)
+        # exog indices (ncoef_base onward) remain 0 — no shrinkage
 
         pen = np.diag(prior_prec_diag)
         B[:, i] = np.linalg.solve(XtX + pen, X.T @ Y[:, i])
@@ -223,72 +275,73 @@ class VECMResultsWrapper:
         self.coint_rank = coint_rank
         self.deterministic = deterministic
 
-        k = df.shape[1]
-        p_diff = k_ar_diff
-
-        # Build VAR-representation coefficients from VECM parameters
-        # VECM: Delta y_t = alpha beta' y_{t-1} + Gamma_1 Delta y_{t-1} + ... + c + u_t
-        # VAR(p) in levels: y_t = A_1 y_{t-1} + ... + A_p y_{t-p} + c + u_t
-        alpha = vecm_result.alpha  # (k, r)
-        beta = vecm_result.beta   # (k, r) — cointegrating vectors
-        Pi = alpha @ beta.T       # (k, k) — long-run impact matrix
-
-        gamma = []
-        if hasattr(vecm_result, 'gamma') and vecm_result.gamma is not None:
-            g = vecm_result.gamma
-            for i in range(p_diff):
-                gamma.append(g[:, i * k:(i + 1) * k])
-
-        # Convert VECM to VAR in levels
-        # A_1 = I + Pi + Gamma_1
-        # A_i = Gamma_i - Gamma_{i-1}  for i=2,...,p-1
-        # A_p = -Gamma_{p-1}
-        p = p_diff + 1
-        coefs = np.zeros((p, k, k))
-        if p_diff == 0:
-            coefs[0] = np.eye(k) + Pi
-        else:
-            coefs[0] = np.eye(k) + Pi + gamma[0]
-            for i in range(1, p_diff):
-                coefs[i] = gamma[i] - gamma[i - 1]
-            coefs[p - 1] = -gamma[-1]
-
-        self.coefs = coefs
+        self.var_rep = np.asarray(vecm_result.var_rep)
+        self.coefs = self.var_rep.copy()
+        k = self.coefs.shape[1]
 
         resid = vecm_result.resid
         self.resid = resid if isinstance(resid, np.ndarray) else resid.values
 
-        self.sigma_u = np.cov(self.resid, rowvar=False)
-
-        self.intercept = np.zeros(k)
-        if hasattr(vecm_result, "const") and vecm_result.const is not None:
-            const_arr = np.asarray(vecm_result.const).reshape(-1)
-            if const_arr.size >= k:
-                self.intercept = const_arr[:k]
+        self.sigma_u = np.asarray(vecm_result.sigma_u)
+        self.intercept = self._deterministic_shift(steps=1, start_offset=0)[0]
 
         n = self.nobs
+        p = self.k_ar
         k_params = k * (1 + k * p)
         ll = -0.5 * n * k * np.log(2 * np.pi) - 0.5 * n * np.log(max(np.linalg.det(self.sigma_u), 1e-20)) - 0.5 * n * k
         self.aic = -2 * ll + 2 * k_params
         self.bic = -2 * ll + k_params * np.log(n)
 
-    def forecast(self, y_last, steps):
+    def _deterministic_components(self, steps: int, start_offset: int = 0):
+        """Build deterministic regressors and coefficients as statsmodels VECM predict() does."""
+        exog = []
+        trend_coefs = []
+        exog_const = np.ones(steps)
+
+        if self._vecm.const.size > 0:
+            exog.append(exog_const)
+            trend_coefs.append(self._vecm.const.T)
+
+        if self._vecm.lin_trend.size > 0:
+            exog_lin = _linear_trend(self.nobs, self.k_ar).ravel()
+            exog_lin = exog_lin[-1] + 1 + start_offset + np.arange(steps)
+            exog.append(exog_lin)
+            trend_coefs.append(self._vecm.lin_trend.T)
+
+        if "ci" in self.deterministic:
+            exog.append(exog_const)
+            trend_coefs.append(self._vecm.alpha.dot(self._vecm.const_coint.T).T)
+
+        if "li" in self.deterministic:
+            exog_lin_coint = _linear_trend(self.nobs, self.k_ar, coint=True).ravel()
+            exog_lin_coint = exog_lin_coint[-1] + 1 + start_offset + np.arange(steps)
+            exog.append(exog_lin_coint)
+            trend_coefs.append(self._vecm.alpha.dot(self._vecm.lin_trend_coint.T).T)
+
+        exog_arr = np.column_stack(exog) if exog else None
+        trend_arr = np.vstack(trend_coefs) if trend_coefs else None
+        return exog_arr, trend_arr
+
+    def _deterministic_shift(self, steps: int, start_offset: int = 0) -> np.ndarray:
+        exog, trend = self._deterministic_components(steps, start_offset=start_offset)
+        if exog is None or trend is None:
+            return np.zeros((steps, self.coefs.shape[1]))
+        return exog @ trend
+
+    def forecast(self, y_last, steps, start_offset: int = 0):
         y_last = np.asarray(y_last)
         k = self.coefs.shape[1]
         p = self.k_ar
+        if y_last.ndim != 2 or y_last.shape[1] != k:
+            raise ValueError(
+                f"VECM forecast expects a 2-D array with {k} columns; got {y_last.shape}"
+            )
         if y_last.shape[0] < p:
             raise ValueError(
                 f"VECM forecast needs at least {p} level lags; got {y_last.shape[0]}"
             )
-        history = y_last.copy()
-        out = np.zeros((steps, k))
-        for h in range(steps):
-            y_hat = self.intercept.copy()
-            for lag in range(1, p + 1):
-                y_hat += self.coefs[lag - 1] @ history[-lag]
-            out[h] = y_hat
-            history = np.vstack([history, y_hat])
-        return out
+        exog, trend = self._deterministic_components(steps, start_offset=start_offset)
+        return _var_forecast(y_last[-p:], self.var_rep, trend, steps, exog)
 
 
 def _is_vecm_result(result) -> bool:
@@ -391,46 +444,50 @@ def _generate_calibrated_data() -> pd.DataFrame:
     T = 104
     dates = pd.date_range("2000-01-01", periods=T, freq="QS")
     var_names = MODEL_VARIABLES
+    k = len(var_names)  # 7
 
-    mu = np.array([3.0, 2.0, 4.5, 2.5, 7.0, 2.0])
+    # Order: gdp_growth, cpi_inflation, unemployment, hibor_3m, china_gdp, us_ffr, hk_exports_china_yoy
+    mu = np.array([3.0, 2.0, 4.5, 2.5, 7.0, 2.0, 5.0])
 
     A = np.array([
-        [ 0.55,  0.00, -0.05,  -0.02,  0.08,  0.00],
-        [ 0.05,  0.65,  0.00,   0.00,  0.02,  0.00],
-        [-0.08,  0.00,  0.88,   0.01, -0.03,  0.00],
-        [ 0.00,  0.00,  0.00,   0.60,  0.00,  0.35],
-        [ 0.04,  0.00,  0.00,   0.00,  0.78,  0.00],
-        [ 0.00,  0.00,  0.00,   0.00,  0.00,  0.92],
+        [ 0.55,  0.00, -0.05, -0.02,  0.08,  0.00,  0.05],
+        [ 0.05,  0.65,  0.00,  0.00,  0.02,  0.00,  0.02],
+        [-0.08,  0.00,  0.88,  0.01, -0.03,  0.00, -0.02],
+        [ 0.00,  0.00,  0.00,  0.60,  0.00,  0.35,  0.00],
+        [ 0.04,  0.00,  0.00,  0.00,  0.78,  0.00,  0.00],
+        [ 0.00,  0.00,  0.00,  0.00,  0.00,  0.92,  0.00],
+        [ 0.30,  0.00, -0.10,  0.00,  0.40,  0.00,  0.65],
     ])
 
-    sigma = np.diag([1.8, 0.8, 0.5, 0.6, 0.9, 0.5])
+    sigma = np.diag([1.8, 0.8, 0.5, 0.6, 0.9, 0.5, 8.0])
     R = np.array([
-        [1.00, 0.30, -0.40,  0.10,  0.45,  0.10],
-        [0.30, 1.00,  0.00,  0.15,  0.20,  0.05],
-        [-0.40, 0.00, 1.00, -0.05, -0.30,  0.00],
-        [0.10, 0.15, -0.05,  1.00,  0.05,  0.70],
-        [0.45, 0.20, -0.30,  0.05,  1.00,  0.10],
-        [0.10, 0.05,  0.00,  0.70,  0.10,  1.00],
+        [1.00,  0.30, -0.40,  0.10,  0.45,  0.10,  0.50],
+        [0.30,  1.00,  0.00,  0.15,  0.20,  0.05,  0.15],
+        [-0.40, 0.00,  1.00, -0.05, -0.30,  0.00, -0.25],
+        [0.10,  0.15, -0.05,  1.00,  0.05,  0.70,  0.05],
+        [0.45,  0.20, -0.30,  0.05,  1.00,  0.10,  0.55],
+        [0.10,  0.05,  0.00,  0.70,  0.10,  1.00,  0.10],
+        [0.50,  0.15, -0.25,  0.05,  0.55,  0.10,  1.00],
     ])
     cov = sigma @ R @ sigma
 
-    eps = _RNG_DATA.multivariate_normal(np.zeros(6), cov, size=T)
+    eps = _RNG_DATA.multivariate_normal(np.zeros(k), cov, size=T)
 
     # Inject structural breaks as additional shock vectors (fix #9)
     gfc_shocks = {
-        32: np.array([-2.0, 0.0, 0.5, -1.0, -0.5, -0.3]),
-        33: np.array([-4.5, -0.3, 1.2, -1.5, -1.0, -0.8]),
-        34: np.array([-3.0, -0.5, 1.8, -1.2, -0.5, -0.5]),
-        35: np.array([-1.5,  0.0, 1.5, -0.5,  0.0, -0.2]),
+        32: np.array([-2.0, 0.0,  0.5, -1.0, -0.5, -0.3, -15.0]),
+        33: np.array([-4.5, -0.3, 1.2, -1.5, -1.0, -0.8, -25.0]),
+        34: np.array([-3.0, -0.5, 1.8, -1.2, -0.5, -0.5, -18.0]),
+        35: np.array([-1.5,  0.0, 1.5, -0.5,  0.0, -0.2,  -8.0]),
     }
     covid_shocks = {
-        80: np.array([-8.0, -1.5, 2.5, -0.5, -2.0, -0.8]),
-        81: np.array([-4.0, -0.5, 1.8,  0.0, -1.0, -0.3]),
+        80: np.array([-8.0, -1.5, 2.5, -0.5, -2.0, -0.8, -30.0]),
+        81: np.array([-4.0, -0.5, 1.8,  0.0, -1.0, -0.3, -15.0]),
     }
     for t_idx, shock_vec in {**gfc_shocks, **covid_shocks}.items():
         eps[t_idx] += shock_vec
 
-    y = np.zeros((T, 6))
+    y = np.zeros((T, k))
     y[0] = mu
     for t in range(1, T):
         y[t] = mu + A @ (y[t - 1] - mu) + eps[t]
@@ -444,22 +501,27 @@ def _generate_calibrated_data() -> pd.DataFrame:
     return df
 
 
-def _load_local_quarterly_data(path: str) -> pd.DataFrame:
+def _load_local_quarterly_data(
+    path: str,
+    variables: list[str] | None = None,
+) -> pd.DataFrame:
+    if variables is None:
+        variables = MODEL_VARIABLES
     df = pd.read_csv(path)
     if "date" not in df.columns:
         raise ValueError("Local data file must include a 'date' column.")
     df["date"] = pd.to_datetime(df["date"])
     df = df.set_index("date").sort_index()
-    missing = [c for c in MODEL_VARIABLES if c not in df.columns]
+    missing = [c for c in variables if c not in df.columns]
     if missing:
         raise ValueError(f"Local data file is missing required columns: {missing}")
-    df = df[MODEL_VARIABLES].resample("QS").mean().dropna()
+    df = df[variables].resample("QS").mean().dropna()
     return df
 
 
 def _write_data_dictionary(df: pd.DataFrame, source_map: dict):
     rows = []
-    for var in MODEL_VARIABLES:
+    for var in df.columns:
         spec = DATA_SPEC.get(var, {})
         rows.append({
             "variable": var,
@@ -476,14 +538,23 @@ def _write_data_dictionary(df: pd.DataFrame, source_map: dict):
     return meta
 
 
-def assemble_data(prefer_local_real_data: bool = True) -> pd.DataFrame:
+def assemble_data(
+    prefer_local_real_data: bool = True,
+    include_property: bool = False,
+) -> pd.DataFrame:
     fred_map = {k: v["series_id"] for k, v in DATA_SPEC.items() if v["source"] == "FRED"}
     source_map = {}
 
-    local_path = os.path.join(DATA_DIR, "hk_macro_quarterly_real.csv")
+    required_vars = PROPERTY_MODEL_VARIABLES if include_property else MODEL_VARIABLES
+    local_path = os.path.join(
+        DATA_DIR,
+        "hk_macro_quarterly_property_extension.csv"
+        if include_property
+        else "hk_macro_quarterly_real.csv",
+    )
     if prefer_local_real_data and os.path.exists(local_path):
         try:
-            df = _load_local_quarterly_data(local_path)
+            df = _load_local_quarterly_data(local_path, variables=required_vars)
             source_meta_path = os.path.join(DATA_DIR, "source_metadata.json")
             source_meta = {}
             if os.path.exists(source_meta_path):
@@ -494,6 +565,11 @@ def assemble_data(prefer_local_real_data: bool = True) -> pd.DataFrame:
                     source_meta = {}
             for col in df.columns:
                 source_map[col] = source_meta.get(col, "local_csv")
+            if include_property and PROPERTY_VARIABLE in df.columns:
+                source_map[PROPERTY_VARIABLE] = (
+                    "RVD/data.gov.hk 1.4M official All Classes private domestic "
+                    "price index, monthly -> quarterly mean"
+                )
             print(f"[DATA] Loaded local real data -- {len(df)} quarters")
             _write_data_dictionary(df, source_map)
             csv_path = os.path.join(DATA_DIR, "hk_macro_quarterly.csv")
@@ -501,7 +577,17 @@ def assemble_data(prefer_local_real_data: bool = True) -> pd.DataFrame:
             print(f"[DATA] Saved to {csv_path}")
             return df
         except Exception as exc:
+            if include_property:
+                raise ValueError(
+                    "Property model requested but the local macro-property panel "
+                    "could not be loaded. Run `python fetch_real_data.py` first."
+                ) from exc
             print(f"[DATA] Local real data load failed ({exc}); trying FRED/synthetic path")
+    elif include_property:
+        raise FileNotFoundError(
+            f"Property model requested but {local_path} is missing. "
+            "Run `python fetch_real_data.py` first."
+        )
 
     fetched = {}
     for name, sid in fred_map.items():
@@ -510,7 +596,7 @@ def assemble_data(prefer_local_real_data: bool = True) -> pd.DataFrame:
             fetched[name] = s
             source_map[name] = "fred_csv_endpoint"
 
-    if len(fetched) >= 4:
+    if len(fetched) >= 4 and "us_ffr" in fetched:
         df = pd.DataFrame(fetched)
         df = df.resample("QS").mean().dropna()
         # Audit fix #8: use metadata, not value heuristic
@@ -524,6 +610,11 @@ def assemble_data(prefer_local_real_data: bool = True) -> pd.DataFrame:
             source_map["hibor_3m"] = "derived_from_us_ffr"
         df = df.dropna()
         print(f"[DATA] Assembled real data from FRED -- {len(df)} quarters")
+    elif len(fetched) >= 4 and "us_ffr" not in fetched:
+        print("[DATA] FRED fallback missing us_ffr; cannot derive hibor_3m. Using synthetic data.")
+        df = _generate_calibrated_data()
+        for col in df.columns:
+            source_map[col] = "synthetic_calibrated"
     else:
         print("[DATA] FRED unavailable; using calibrated synthetic data")
         df = _generate_calibrated_data()
@@ -720,9 +811,20 @@ def granger_causality_diagnostics(df_est: pd.DataFrame, max_lag: int = 4):
                 sig = "*" if best_p < 0.05 else ""
                 print(f"  {ext:15s} -> {dom:18s}  best p = {best_p:.4f} {sig}")
                 results.append({"cause": ext, "effect": dom, "best_p": best_p})
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"  {ext:15s} -> {dom:18s}  failed ({exc})")
     return results
+
+
+def hk_response_targets(var_names: list[str]) -> list[str]:
+    targets = [
+        "gdp_growth",
+        "cpi_inflation",
+        "unemployment",
+        "hibor_3m",
+        PROPERTY_VARIABLE,
+    ]
+    return [v for v in targets if v in var_names]
 
 
 def select_lag_order(df: pd.DataFrame, max_lags: int = 8, criterion: str = "aic",
@@ -768,15 +870,20 @@ def select_lag_order(df: pd.DataFrame, max_lags: int = 8, criterion: str = "aic"
 
 
 def plot_raw_data(df: pd.DataFrame):
-    fig, axes = plt.subplots(3, 2, figsize=(14, 10), sharex=True)
+    k = len(df.columns)
+    ncols = 2
+    nrows = (k + 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(14, nrows * 3.3), sharex=True)
     axes = axes.ravel()
     titles = {
         "gdp_growth": "HK Real GDP Growth (YoY %)",
         "cpi_inflation": "HK CPI Inflation (YoY %)",
         "unemployment": "HK Unemployment Rate (%)",
         "hibor_3m": "3-Month HIBOR (%)",
-        "china_gdp": "China Nominal GDP Growth (YoY %)",
+        "china_gdp": "China Real GDP Growth (YoY %)",
         "us_ffr": "US Federal Funds Rate (%)",
+        "hk_exports_china_yoy": "HK Exports to China (YoY %)",
+        "hk_property_price_idx": "HK Private Domestic Property Price Index",
     }
     for i, col in enumerate(df.columns):
         ax = axes[i]
@@ -829,6 +936,14 @@ def _companion_matrix(coefs):
     return companion
 
 
+def _stability_label(max_eig: float, model_type: str) -> str:
+    if model_type == "vecm":
+        if max_eig <= 1.000001:
+            return "NON-EXPLOSIVE (unit roots allowed by VECM)"
+        return "EXPLOSIVE"
+    return "STABLE" if max_eig < 1 else "UNSTABLE"
+
+
 def _cholesky_irf(coefs, sigma_u, periods: int = 16):
     """
     Audit fix #4: Compute orthogonalized (Cholesky) IRFs consistently
@@ -856,7 +971,8 @@ def _cholesky_irf(coefs, sigma_u, periods: int = 16):
 def estimate_model(df: pd.DataFrame, lags: int, model_type: str = "var",
                    bvar_lambda1: float = 0.2,
                    df_raw: pd.DataFrame = None, coint_rank: int = None,
-                   vecm_deterministic: str = "ci", vecm_lag_diff: int | None = None):
+                   vecm_deterministic: str = "ci", vecm_lag_diff: int | None = None,
+                   exog: np.ndarray | None = None):
     if model_type == "vecm":
         if df_raw is None:
             raise ValueError("VECM requires df_raw (levels data)")
@@ -872,11 +988,11 @@ def estimate_model(df: pd.DataFrame, lags: int, model_type: str = "var",
             f"VECM (rank={rank}, lag_diff={lag_diff}, det='{vecm_deterministic}')"
         )
     elif model_type == "bvar":
-        result = fit_bvar_minnesota(df, lags, lambda1=bvar_lambda1)
+        result = fit_bvar_minnesota(df, lags, lambda1=bvar_lambda1, exog=exog)
         estimator_name = f"BVAR (Minnesota prior, lambda1={bvar_lambda1:.3f})"
     else:
-        model = VAR(df)
-        result = model.fit(lags)
+        var_model = VAR(df, exog=exog) if exog is not None else VAR(df)
+        result = var_model.fit(lags)
         result.model_label = "var"
         estimator_name = "VAR (OLS)"
 
@@ -894,12 +1010,13 @@ def estimate_model(df: pd.DataFrame, lags: int, model_type: str = "var",
     companion = _companion_matrix(coefs)
     eig_vals = np.linalg.eigvals(companion)
     max_eig = np.abs(eig_vals).max()
-    print(f"\nMax eigenvalue modulus: {max_eig:.4f} -> {'STABLE' if max_eig < 1 else 'UNSTABLE'}")
+    stability_label = _stability_label(max_eig, model_type)
+    print(f"\nMax eigenvalue modulus: {max_eig:.4f} -> {stability_label}")
     if model_type == "vecm":
         k = df.shape[1]
         if getattr(result, "coint_rank", 0) >= max(k - 1, 1):
             print("  [WARN] Cointegration rank is near full rank; check deterministic term and lag_diff.")
-        if max_eig >= 1:
+        if max_eig > 1.000001:
             print("  [HINT] Try higher --vecm-lag-diff or alternative --vecm-deterministic.")
 
     resid_arr = result.resid.values if hasattr(result.resid, "values") else result.resid
@@ -918,6 +1035,8 @@ def estimate_model(df: pd.DataFrame, lags: int, model_type: str = "var",
 
     result._irfs = irfs
     result._sigma_u_computed = sigma_u
+    result._max_eig = float(max_eig)
+    result._eig_vals = eig_vals
     return result
 
 
@@ -1068,11 +1187,13 @@ def default_sign_table():
             "hibor_3m": +1,
             "gdp_growth": -1,
             "unemployment": +1,
+            "hk_property_price_idx": -1,
         },
         "china_growth": {
             "china_gdp": +1,
             "gdp_growth": +1,
             "cpi_inflation": +1,
+            "hk_property_price_idx": +1,
         },
     }
 
@@ -1090,8 +1211,7 @@ def plot_sign_restriction_irfs(accepted_irfs, var_names, shock_names=None):
         shock_names = [f"shock_{j}" for j in range(k)]
     n_shocks = min(len(shock_names), k)
 
-    hk_targets = [v for v in ["gdp_growth", "cpi_inflation", "unemployment", "hibor_3m"]
-                  if v in var_names]
+    hk_targets = hk_response_targets(var_names)
     n_rows = len(hk_targets)
 
     fig, axes = plt.subplots(n_rows, n_shocks, figsize=(5 * n_shocks, 3 * n_rows))
@@ -1160,8 +1280,7 @@ def plot_fevd(fevd: np.ndarray, var_names: list, horizons_to_show=None):
     horizons_to_show = [h for h in horizons_to_show if h <= H_max]
 
     k = len(var_names)
-    hk_vars = [v for v in ["gdp_growth", "cpi_inflation", "unemployment", "hibor_3m"]
-               if v in var_names]
+    hk_vars = hk_response_targets(var_names)
     if not hk_vars:
         hk_vars = var_names[:4]
 
@@ -1250,19 +1369,34 @@ def compute_historical_decomposition(result, df: pd.DataFrame, var_names: list):
     # Align decomposition window to residual sample length. This keeps VAR and
     # VECM paths consistent even when effective sample starts differ.
     start_idx = max(len(df) - T, 0)
-    data_for_decomp = arr[start_idx:start_idx + T]
-    intercept = getattr(result, "intercept", None)
-    if intercept is None:
-        base = np.mean(data_for_decomp, axis=0)
-    else:
-        base = intercept
-
     dates = df.index[start_idx:start_idx + T]
+
+    # Build a recursive no-shock baseline path:
+    # y_t^0 = c + A_1 y_{t-1}^0 + ... + A_p y_{t-p}^0
+    # For VECM-ci (current default), result.intercept = _deterministic_shift(1,0)[0]
+    # is a constant k-vector — correct here. Linear-trend specs (li/lo) would need
+    # in-sample trend values instead, but ci is the only spec currently in use.
+    intercept = np.asarray(getattr(result, "intercept", np.zeros(k))).reshape(-1)
+    if intercept.size != k:
+        intercept = np.zeros(k)
+    hist_start = max(start_idx - p, 0)
+    history = arr[hist_start:start_idx].copy()
+    if history.shape[0] < p:
+        pad_rows = np.repeat(arr[[0]], p - history.shape[0], axis=0)
+        history = np.vstack([pad_rows, history])
+
+    base_path = np.zeros((T, k))
+    for t in range(T):
+        y_hat = intercept.copy()
+        for lag in range(1, p + 1):
+            y_hat += coefs[lag - 1] @ history[-lag]
+        base_path[t] = y_hat
+        history = np.vstack([history, y_hat])
 
     return {
         "contributions": contributions,
         "structural_shocks": structural_shocks,
-        "base": base,
+        "base": base_path,
         "dates": dates,
         "var_names": var_names,
     }
@@ -1275,8 +1409,7 @@ def plot_historical_decomposition(hd: dict, df_raw: pd.DataFrame = None):
     var_names = hd["var_names"]
     k = len(var_names)
 
-    hk_vars = [v for v in ["gdp_growth", "cpi_inflation", "unemployment", "hibor_3m"]
-               if v in var_names]
+    hk_vars = hk_response_targets(var_names)
     if not hk_vars:
         hk_vars = var_names[:4]
 
@@ -1508,8 +1641,7 @@ def robustness_ordering_permutations(df_est, lags, model_type, bvar_lambda1,
 
 def _plot_ordering_robustness(results, base_var_names):
     """Compare FEVD at h=8 across orderings for HK domestic variables."""
-    hk_targets = [v for v in ["gdp_growth", "cpi_inflation", "unemployment", "hibor_3m"]
-                  if v in base_var_names]
+    hk_targets = hk_response_targets(base_var_names)
     external = [v for v in ["us_ffr", "china_gdp"] if v in base_var_names]
     h = 8
 
@@ -1653,6 +1785,7 @@ def rolling_backtest(df: pd.DataFrame, lags: int, forecast_horizon: int = 4,
     cols = list(df.columns)
     n_vars = len(cols)
     records = []
+    skipped_windows = 0
 
     for t in range(min_train, T - forecast_horizon):
         train = df.iloc[:t]
@@ -1668,6 +1801,7 @@ def rolling_backtest(df: pd.DataFrame, lags: int, forecast_horizon: int = 4,
                 train_raw = df_raw.loc[train.index]
                 rank = _vecm_rank_or_default(coint_rank)
                 lag_diff = max(lags - 1, 1) if vecm_lag_diff is None else max(int(vecm_lag_diff), 1)
+                k_ar_levels = lag_diff + 1
                 mod = fit_vecm(
                     train_raw,
                     lags_diff=lag_diff,
@@ -1675,11 +1809,14 @@ def rolling_backtest(df: pd.DataFrame, lags: int, forecast_horizon: int = 4,
                     deterministic=vecm_deterministic,
                     verbose=False,
                 )
-                var_fc = mod.forecast(train_raw.values[-lags:], steps=forecast_horizon)
+                var_fc = mod.forecast(train_raw.values[-k_ar_levels:], steps=forecast_horizon)
             else:
                 mod = VAR(train).fit(lags)
                 var_fc = mod.forecast(train.values[-lags:], steps=forecast_horizon)
-        except Exception:
+        except Exception as exc:
+            skipped_windows += 1
+            if skipped_windows <= 3:
+                print(f"[WARN] rolling_backtest skipped origin={train.index[-1]} ({exc})")
             continue
 
         ar_fc = np.zeros((forecast_horizon, n_vars))
@@ -1710,6 +1847,8 @@ def rolling_backtest(df: pd.DataFrame, lags: int, forecast_horizon: int = 4,
                 "origin", "horizon", "variable", "actual", "var_fc", "ar_fc", "rw_fc"
             ]
         )
+    if skipped_windows:
+        print(f"[WARN] rolling_backtest skipped {skipped_windows} windows.")
     return pd.DataFrame(records)
 
 
@@ -1738,6 +1877,7 @@ def model_backtest_summary_level(
     cols = list(df_est.columns)
     records = []
     T = len(df_est)
+    skipped_windows = 0
     for t in range(min_train, T - forecast_horizon):
         train = df_est.iloc[:t]
         block_est = df_est.iloc[t:t + forecast_horizon]
@@ -1750,6 +1890,7 @@ def model_backtest_summary_level(
                 train_raw = df_raw.loc[train.index]
                 rank = _vecm_rank_or_default(coint_rank)
                 lag_diff = max(lags - 1, 1) if vecm_lag_diff is None else max(int(vecm_lag_diff), 1)
+                k_ar_levels = lag_diff + 1
                 mod = fit_vecm(
                     train_raw,
                     lags_diff=lag_diff,
@@ -1758,11 +1899,14 @@ def model_backtest_summary_level(
                     verbose=False,
                 )
                 # VECM is fit on levels; forecasts match df_raw units (no diff inversion).
-                fc_t = mod.forecast(train_raw.values[-lags:], steps=forecast_horizon)
+                fc_t = mod.forecast(train_raw.values[-k_ar_levels:], steps=forecast_horizon)
             else:
                 mod = VAR(train).fit(lags)
                 fc_t = mod.forecast(train.values[-lags:], steps=forecast_horizon)
-        except Exception:
+        except Exception as exc:
+            skipped_windows += 1
+            if skipped_windows <= 3:
+                print(f"[WARN] model_backtest_summary_level skipped origin={train.index[-1]} ({exc})")
             continue
 
         origin_levels = df_raw.loc[train.index[-1], cols].values
@@ -1792,6 +1936,8 @@ def model_backtest_summary_level(
     bt = pd.DataFrame(records)
     if bt.empty:
         return bt
+    if skipped_windows:
+        print(f"[WARN] model_backtest_summary_level skipped {skipped_windows} windows.")
     summary = (
         bt.groupby(["model", "variable", "horizon"], as_index=False)
         .agg(
@@ -1956,13 +2102,38 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
     """
     cols = list(df.columns)
     levels_df = df_raw if df_raw is not None else df
+    state_lags = result.k_ar if _is_vecm_result(result) else lags
     if _is_vecm_result(result):
-        last_obs = levels_df.values[-lags:]
+        last_obs = levels_df.values[-state_lags:]
     else:
-        last_obs = df.values[-lags:]
+        last_obs = df.values[-state_lags:]
+    exog_future = None
+    if not _is_vecm_result(result):
+        k_exog_user = int(getattr(result, "k_exog_user", 0) or 0)
+        if k_exog_user:
+            # Future crisis/event dummies are zero in baseline scenario forecasts.
+            exog_future = np.zeros((1, k_exog_user))
 
-    # Baseline forecast (transformed space for VAR/BVAR; levels for VECM)
-    base_fc_t = result.forecast(last_obs, steps=horizon)
+    def _one_step(path: np.ndarray, step_idx: int) -> np.ndarray:
+        state = path[-state_lags:]
+        if _is_vecm_result(result):
+            return result.forecast(state, steps=1, start_offset=step_idx)[0]
+        if exog_future is not None:
+            return result.forecast(state, steps=1, exog_future=exog_future)[0]
+        return result.forecast(state, steps=1)[0]
+
+    def _simulate_with_first_step_delta(step0_deltas: dict[int, float]) -> np.ndarray:
+        path = last_obs.copy()
+        for h in range(horizon):
+            step = _one_step(path, h)
+            if h == 0:
+                for idx, delta in step0_deltas.items():
+                    step[idx] += delta
+            path = np.vstack([path, step])
+        return path[-horizon:]
+
+    # Baseline forecast in model space.
+    base_fc_t = _simulate_with_first_step_delta({})
     fc_dates = pd.date_range(df.index[-1] + pd.offsets.QuarterBegin(1),
                              periods=horizon, freq="QS")
 
@@ -1972,7 +2143,7 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
         base_fc_lev = _invert_transforms(base_fc_t, cols, transforms)
     scenarios = {"baseline": pd.DataFrame(base_fc_lev, index=fc_dates, columns=cols)}
 
-    # Audit fix #7: parameter-uncertainty bootstrap
+    # Innovation-resampling bootstrap (fixed-parameter forecast uncertainty)
     resid_arr = result.resid.values if hasattr(result.resid, "values") else result.resid
     n_boot = 500
     boot_paths = np.zeros((n_boot, horizon, len(cols)))
@@ -1981,7 +2152,7 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
         path = last_obs.copy()
         for h in range(horizon):
             shock = resid_arr[_RNG_BOOT.integers(len(resid_arr))]
-            step = result.forecast(path[-lags:], steps=1)[0] + shock
+            step = _one_step(path, h) + shock
             path = np.vstack([path, step])
         fc_t = path[-horizon:]
         if _is_vecm_result(result):
@@ -1994,19 +2165,15 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
     scenarios["baseline_hi"] = pd.DataFrame(
         np.percentile(boot_paths, 90, axis=0), index=fc_dates, columns=cols)
 
-    # Audit fix #2: define shocks in LEVEL space
+    # Scenario shocks are first-step innovations in model space.
     china_idx = cols.index("china_gdp")
     ffr_idx = cols.index("us_ffr")
 
-    china_baseline_level = transforms["china_gdp"]["last_level"]
-    ffr_baseline_level = transforms["us_ffr"]["last_level"]
-
-    # Weak external: China nominal GDP growth falls 3pp, FFR rises 1.5pp
-    shock1 = _shock_in_level_space(
-        last_obs, china_idx, china_baseline_level - 3.0, transforms, "china_gdp")
-    shock1 = _shock_in_level_space(
-        shock1, ffr_idx, ffr_baseline_level + 1.5, transforms, "us_ffr")
-    weak_fc_t = result.forecast(shock1, steps=horizon)
+    # Weak external: China activity growth falls 3pp, FFR rises 1.5pp
+    weak_fc_t = _simulate_with_first_step_delta({
+        china_idx: -3.0,
+        ffr_idx: 1.5,
+    })
     if _is_vecm_result(result):
         scenarios["weak_external"] = pd.DataFrame(
             weak_fc_t.copy(), index=fc_dates, columns=cols)
@@ -2014,12 +2181,11 @@ def forecast_scenarios(result, df: pd.DataFrame, lags: int,
         scenarios["weak_external"] = pd.DataFrame(
             _invert_transforms(weak_fc_t, cols, transforms), index=fc_dates, columns=cols)
 
-    # Global easing: China nominal GDP growth rises 1pp, FFR falls 1pp
-    shock2 = _shock_in_level_space(
-        last_obs, china_idx, china_baseline_level + 1.0, transforms, "china_gdp")
-    shock2 = _shock_in_level_space(
-        shock2, ffr_idx, ffr_baseline_level - 1.0, transforms, "us_ffr")
-    ease_fc_t = result.forecast(shock2, steps=horizon)
+    # Global easing: China activity growth rises 1pp, FFR falls 1pp
+    ease_fc_t = _simulate_with_first_step_delta({
+        china_idx: 1.0,
+        ffr_idx: -1.0,
+    })
     if _is_vecm_result(result):
         scenarios["global_easing"] = pd.DataFrame(
             ease_fc_t.copy(), index=fc_dates, columns=cols)
@@ -2039,16 +2205,19 @@ def _plot_scenarios(df_raw_or_est, scenarios, cols, horizon, transforms):
     Audit fix #1: plot forecasts in LEVEL space with correct labels.
     Use raw-level history for differenced variables.
     """
-    hk_vars = ["gdp_growth", "cpi_inflation", "unemployment", "hibor_3m"]
+    hk_vars = hk_response_targets(cols)
     titles = {
         "gdp_growth": "HK Real GDP Growth (YoY %)",
         "cpi_inflation": "HK CPI Inflation (YoY %)",
         "unemployment": "HK Unemployment Rate (%)",
         "hibor_3m": "3-Month HIBOR (%)",
+        "hk_property_price_idx": "HK Private Domestic Property Price Index",
     }
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
-    axes = axes.ravel()
+    ncols = 2
+    nrows = int(np.ceil(len(hk_vars) / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(14, 4.2 * nrows))
+    axes = np.atleast_1d(axes).ravel()
     tail = 20
 
     for i, col in enumerate(hk_vars):
@@ -2077,6 +2246,9 @@ def _plot_scenarios(df_raw_or_est, scenarios, cols, horizon, transforms):
         ax.grid(alpha=0.3)
         if i == 0:
             ax.legend(fontsize=8, loc="lower left")
+
+    for ax in axes[len(hk_vars):]:
+        ax.axis("off")
 
     fig.suptitle(
         f"Hong Kong Macro Forecast (levels) -- {horizon}Q Horizon",
@@ -2113,6 +2285,12 @@ def _save_forecast_table(scenarios: dict):
 def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model_used,
                        coint_result=None):
     diff_vars = [k for k, v in transforms.items() if v["transform"] == "first_diff"]
+    max_eig = getattr(result, "_max_eig", None)
+    if max_eig is None:
+        stability_line = "Stability  : see output/03_stability.png"
+    else:
+        status = _stability_label(max_eig, model_used)
+        stability_line = f"Stability  : max eigenvalue modulus = {max_eig:.4f} ({status})"
     note = f"""
 ================================================================================
   HONG KONG QUARTERLY VAR MODEL -- METHODS NOTE
@@ -2135,7 +2313,7 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
    Estimator  : {"OLS equation-by-equation" if model_used == "var" else ("VECM (Johansen system)" if model_used == "vecm" else "Minnesota-prior Bayesian VAR")}
    AIC        : {f"{result.aic:.2f}" if np.isfinite(result.aic) else "n/a"}
    BIC        : {f"{result.bic:.2f}" if np.isfinite(result.bic) else "n/a"}
-   Stability  : All eigenvalues inside the unit circle (max modulus < 1)
+   {stability_line}
    IRFs       : Orthogonalized (Cholesky decomposition, consistent across model types)
 
 4. COINTEGRATION
@@ -2156,14 +2334,27 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
 6. SCENARIO DESIGN
    All forecasts presented in LEVEL space (transforms inverted).
    Baseline       : Unconditional VAR forecast, 8 quarters ahead
-   Weak external  : China nominal GDP growth level -{3.0}pp, US FFR level +{1.5}pp
-   Global easing  : China nominal GDP growth level +{1.0}pp, US FFR level -{1.0}pp
-   Confidence     : Bootstrapped 80% interval (500 replications, residual resampling)
+   Weak external  : first-step shock China -{3.0}pp, US FFR +{1.5}pp
+   Global easing  : first-step shock China +{1.0}pp, US FFR -{1.0}pp
+   Confidence     : Bootstrapped 80% interval (500 replications, innovation resampling)
 
 7. KEY ASSUMPTIONS AND LIMITATIONS
    - Currency board (HKD peg to USD) maintained throughout forecast horizon.
+   - HK CPI uses official C&SD table 510-60001 Composite CPI YoY monthly data, aggregated to quarters.
+   - China activity uses real GDP YoY from OECD QNA (B1GQ, GY); falls back to nominal FRED CHNGDPNQDSMEI if OECD unavailable.
+"""
+    if PROPERTY_VARIABLE in df.columns:
+        note += (
+            "   - Property channel uses the official RVD All Classes private "
+            "domestic price index, monthly data aggregated to quarterly mean.\n"
+            "   - Property prices are treated as an asset-price transmission "
+            "channel inside the same currency-board transmission question, "
+            "not as a separate research topic.\n"
+        )
+
+    note += """\
    - Reduced-form model; Cholesky ordering used for IRF illustration only.
-   - Structural breaks (GFC, COVID) present; no explicit dummies.
+   - GFC (2008Q4-2009Q2) and COVID (2020Q1-2020Q2) pulse dummies included in main estimation to absorb structural breaks.
    - Scenario shocks are entered in level terms for economic interpretation.
 """
     if diff_vars:
@@ -2176,9 +2367,8 @@ def write_methods_note(df, result, lags, bt_summary, transforms, lag_diag, model
             note += f"   - Variables differenced for estimation: {diff_vars}\n"
             note += "     Forecasts are cumulated back to levels for output.\n"
             note += (
-                "   - For differenced series, scenario levels are mapped to the final\n"
-                "     transformed state (desired_level - last_level) before simulation,\n"
-                "     then converted back to level paths in saved outputs.\n"
+                "   - Scenario paths are generated by applying first-step transformed-space\n"
+                "     shocks and then letting model dynamics evolve recursively.\n"
             )
 
     note += "\n================================================================================\n"
@@ -2299,6 +2489,14 @@ def parse_args():
     parser.add_argument("--max-lags", type=int, default=8)
     parser.add_argument("--max-params-ratio", type=float, default=0.8)
     parser.add_argument("--no-local-real-data", action="store_true")
+    parser.add_argument(
+        "--include-property",
+        action="store_true",
+        help=(
+            "Use the official RVD property-price extension panel and add "
+            "hk_property_price_idx as a Hong Kong asset-price channel."
+        ),
+    )
     parser.add_argument("--model-type", choices=["var", "bvar", "vecm", "auto"], default="auto")
     parser.add_argument("--bvar-lambda1", type=float, default=0.2,
                         help="Minnesota prior overall tightness.")
@@ -2342,11 +2540,27 @@ def main():
     print("\n" + "=" * 70)
     print("  STEP 1: DATA ASSEMBLY")
     print("=" * 70)
-    df_raw = assemble_data(prefer_local_real_data=not args.no_local_real_data)
+    df_raw = assemble_data(
+        prefer_local_real_data=not args.no_local_real_data,
+        include_property=args.include_property,
+    )
+    if args.include_property:
+        print(
+            "[DATA] Property channel enabled: hk_property_price_idx "
+            "(official RVD All Classes private domestic price index)"
+        )
 
     # Cholesky ordering (audit v2 fix #4)
-    DEFAULT_ORDER = ["us_ffr", "china_gdp", "gdp_growth", "cpi_inflation",
-                     "unemployment", "hibor_3m"]
+    DEFAULT_ORDER = [
+        "us_ffr",
+        "china_gdp",
+        "hk_exports_china_yoy",
+        "hk_property_price_idx",
+        "gdp_growth",
+        "cpi_inflation",
+        "unemployment",
+        "hibor_3m",
+    ]
     if args.cholesky_order:
         order = [v.strip() for v in args.cholesky_order.split(",")]
     else:
@@ -2401,11 +2615,16 @@ def main():
     print("\n" + "=" * 70)
     print("  STEP 3: MODEL ESTIMATION")
     print("=" * 70)
+    # Crisis dummies (GFC 2008Q4-2009Q2, COVID 2020Q1-2020Q2) address Ljung-Box
+    # autocorrelation in us_ffr, gdp_growth, and cpi_inflation equations.
+    # Applied to the main fit only; robustness/backtest calls use no dummies.
+    crisis_dummies = _make_crisis_dummies(df_est.index)
     result = estimate_model(df_est, lags, model_type=model_used,
                             bvar_lambda1=args.bvar_lambda1,
                             df_raw=df_raw, coint_rank=coint_rank,
                             vecm_deterministic=args.vecm_deterministic,
-                            vecm_lag_diff=vecm_lag_diff)
+                            vecm_lag_diff=vecm_lag_diff,
+                            exog=crisis_dummies)
     if model_used == "vecm":
         write_vecm_diagnostics_report(result, list(df_est.columns), coint_result)
 
@@ -2424,7 +2643,7 @@ def main():
     # Print key FEVD results for the research question
     print("\n--- Key FEVD results (h=8 quarters) ---")
     h8 = min(8, fevd.shape[0] - 1)
-    for target in ["gdp_growth", "cpi_inflation", "unemployment", "hibor_3m"]:
+    for target in hk_response_targets(var_names):
         if target in var_names:
             ti = var_names.index(target)
             for shock in ["us_ffr", "china_gdp"]:
@@ -2440,7 +2659,7 @@ def main():
     coefs_base = result.coefs
     accepted_irfs = sign_restriction_irfs(
         coefs_base, sigma_u_base, sign_table, var_names,
-        periods=20, n_draws=5000, n_accept=500, verbose=True)
+        periods=20, n_draws=50000, n_accept=500, verbose=True)
     plot_sign_restriction_irfs(accepted_irfs, var_names,
                                shock_names=list(sign_table.keys()))
 
@@ -2491,7 +2710,7 @@ def main():
                 h8 = min(8, vecm_fevd.shape[0] - 1)
                 print(f"\n  VECM FEVD at h={h8} vs VAR:")
                 print(f"  {'Shock -> Target':40s} {'VAR':>8s} {'VECM':>8s}")
-                for target in ["gdp_growth", "cpi_inflation", "unemployment", "hibor_3m"]:
+                for target in hk_response_targets(var_names):
                     if target in var_names:
                         ti = var_names.index(target)
                         for shock in ["us_ffr", "china_gdp"]:

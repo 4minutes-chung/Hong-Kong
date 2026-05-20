@@ -2,18 +2,20 @@ HONG KONG VECM DIAGNOSTICS REPORT
 ============================================================
 
 deterministic=ci
-coint_rank=3
+coint_rank=1
 lag_diff=1
-nobs=101
+nobs=111
 
 Ljung-Box p-values (lag=8):
-  us_ffr: 0.5171
-  china_gdp: 0.1726
+  us_ffr: 0.9735
+  china_gdp: 0.2068
+  hk_exports_china_yoy: 0.0082
+  hk_property_price_idx: 0.0105
   gdp_growth: 0.0000
-  cpi_inflation: 0.0000
-  unemployment: 0.0472
-  hibor_3m: 0.7448
+  cpi_inflation: 0.0006
+  unemployment: 0.1548
+  hibor_3m: 0.7182
 
 Warnings:
-  - Residual autocorrelation detected in: gdp_growth, cpi_inflation, unemployment. Consider higher lag_diff or different deterministic term.
-  - Johansen ranks (trace 90/95/99): 3/3/2
+  - Residual autocorrelation detected in: hk_exports_china_yoy, hk_property_price_idx, gdp_growth, cpi_inflation. Consider higher lag_diff or different deterministic term.
+  - Johansen ranks (trace 90/95/99): 1/1/1

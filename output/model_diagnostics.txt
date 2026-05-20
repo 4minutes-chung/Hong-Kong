@@ -2,34 +2,36 @@ HONG KONG VAR DIAGNOSTICS REPORT
 ============================================================
 
 Data sample:
-  raw_obs=103, transformed_obs=102
-  start=1998-01-01 end=2023-07-01
+  raw_obs=113, transformed_obs=112
+  start=1998-01-01 end=2026-01-01
 
 Transforms used (ADF+KPSS confirmed):
-  - us_ffr: level (last_level=5.26)
-  - china_gdp: first_diff (last_level=3.47)
-  - gdp_growth: level (last_level=4.10)
-  - cpi_inflation: first_diff (last_level=1.87)
-  - unemployment: first_diff (last_level=2.80)
-  - hibor_3m: first_diff (last_level=5.00)
+  - us_ffr: level (last_level=3.64)
+  - china_gdp: first_diff (last_level=5.00)
+  - hk_exports_china_yoy: level (last_level=34.00)
+  - hk_property_price_idx: first_diff (last_level=308.10)
+  - gdp_growth: level (last_level=5.90)
+  - cpi_inflation: first_diff (last_level=1.50)
+  - unemployment: first_diff (last_level=3.70)
+  - hibor_3m: level (last_level=2.59)
 
 Lag-selection diagnostics:
   criterion=bic
-  aic_lag=8, bic_lag=2
-  selected_lag=2
-  params_per_equation=13
-  n_observations=102
-  params_obs_ratio=0.127
+  aic_lag=8, bic_lag=1
+  selected_lag=1
+  params_per_equation=9
+  n_observations=112
+  params_obs_ratio=0.080
   guardrail_triggered=False
 
 Cointegration diagnostics (Johansen):
-  i1_vars=['china_gdp', 'cpi_inflation', 'unemployment', 'hibor_3m']
+  i1_vars=['china_gdp', 'hk_property_price_idx', 'cpi_inflation', 'unemployment']
   det_order=0, k_ar_diff=1
-  rank_trace(90/95/99)=4/3/2
-  rank_maxeig(90/95/99)=3/3/1
-  selected_rank_auto(trace@95%)=3
+  rank_trace(90/95/99)=1/1/1
+  rank_maxeig(90/95/99)=1/1/1
+  selected_rank_auto(trace@95%)=1
 
 VECM specification:
-  coint_rank=3
+  coint_rank=1
   lag_diff=1
   deterministic=ci

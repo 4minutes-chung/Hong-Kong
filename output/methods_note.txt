@@ -4,30 +4,32 @@
 ================================================================================
 
 1. MODEL SPECIFICATION
-   Type       : VAR
+   Type       : VECM
    Frequency  : Quarterly
-   Variables  : us_ffr, china_gdp, gdp_growth, cpi_inflation, unemployment, hibor_3m
-   Lags       : 2 (selected by BIC)
-   Sample     : 1998Q2 to 2023Q3 (102 obs)
+   Variables  : us_ffr, china_gdp, hk_exports_china_yoy, hk_property_price_idx, gdp_growth, cpi_inflation, unemployment, hibor_3m
+   Lags       : 1 (selected by BIC)
+   Sample     : 1998Q2 to 2026Q1 (112 obs)
 
 2. DATA TRANSFORMS (ADF + KPSS confirmed)
-   us_ffr               : level  (last level = 5.26)
-   china_gdp            : first_diff  (last level = 3.47)
-   gdp_growth           : level  (last level = 4.10)
-   cpi_inflation        : first_diff  (last level = 1.87)
-   unemployment         : first_diff  (last level = 2.80)
-   hibor_3m             : first_diff  (last level = 5.00)
+   us_ffr               : level  (last level = 3.64)
+   china_gdp            : first_diff  (last level = 5.00)
+   hk_exports_china_yoy : level  (last level = 34.00)
+   hk_property_price_idx : first_diff  (last level = 308.10)
+   gdp_growth           : level  (last level = 5.90)
+   cpi_inflation        : first_diff  (last level = 1.50)
+   unemployment         : first_diff  (last level = 3.70)
+   hibor_3m             : level  (last level = 2.59)
 
 3. ESTIMATION
-   Estimator  : OLS equation-by-equation
-   AIC        : -4.58
-   BIC        : -2.55
-   Stability  : All eigenvalues inside the unit circle (max modulus < 1)
+   Estimator  : VECM (Johansen system)
+   AIC        : 3209.59
+   BIC        : 3578.09
+   Stability  : max eigenvalue modulus = 1.0000 (NON-EXPLOSIVE (unit roots allowed by VECM))
    IRFs       : Orthogonalized (Cholesky decomposition, consistent across model types)
 
 4. COINTEGRATION
-   I(1) variables tested: ['china_gdp', 'cpi_inflation', 'unemployment', 'hibor_3m']
-   Cointegration rank (trace test, 95% rule): 3
+   I(1) variables tested: ['china_gdp', 'hk_property_price_idx', 'cpi_inflation', 'unemployment']
+   Cointegration rank (trace test, 95% rule): 1
    NOTE: VECM may improve long-horizon forecasts.
 
 5. FORECAST EVALUATION
@@ -38,19 +40,19 @@
 6. SCENARIO DESIGN
    All forecasts presented in LEVEL space (transforms inverted).
    Baseline       : Unconditional VAR forecast, 8 quarters ahead
-   Weak external  : China nominal GDP growth level -3.0pp, US FFR level +1.5pp
-   Global easing  : China nominal GDP growth level +1.0pp, US FFR level -1.0pp
-   Confidence     : Bootstrapped 80% interval (500 replications, residual resampling)
+   Weak external  : first-step shock China -3.0pp, US FFR +1.5pp
+   Global easing  : first-step shock China +1.0pp, US FFR -1.0pp
+   Confidence     : Bootstrapped 80% interval (500 replications, innovation resampling)
 
 7. KEY ASSUMPTIONS AND LIMITATIONS
    - Currency board (HKD peg to USD) maintained throughout forecast horizon.
+   - HK CPI uses official C&SD table 510-60001 Composite CPI YoY monthly data, aggregated to quarters.
+   - China activity uses real GDP YoY from OECD QNA (B1GQ, GY); falls back to nominal FRED CHNGDPNQDSMEI if OECD unavailable.
+   - Property channel uses the official RVD All Classes private domestic price index, monthly data aggregated to quarterly mean.
+   - Property prices are treated as an asset-price transmission channel inside the same currency-board transmission question, not as a separate research topic.
    - Reduced-form model; Cholesky ordering used for IRF illustration only.
-   - Structural breaks (GFC, COVID) present; no explicit dummies.
+   - GFC (2008Q4-2009Q2) and COVID (2020Q1-2020Q2) pulse dummies included in main estimation to absorb structural breaks.
    - Scenario shocks are entered in level terms for economic interpretation.
-   - Variables differenced for estimation: ['china_gdp', 'cpi_inflation', 'unemployment', 'hibor_3m']
-     Forecasts are cumulated back to levels for output.
-   - For differenced series, scenario levels are mapped to the final
-     transformed state (desired_level - last_level) before simulation,
-     then converted back to level paths in saved outputs.
+   - VAR-style transforms above apply to the reduced-form VAR baseline; the VECM is estimated on levels (us_ffr, china_gdp, hk_exports_china_yoy, hk_property_price_idx, gdp_growth, cpi_inflation, unemployment, hibor_3m).
 
 ================================================================================

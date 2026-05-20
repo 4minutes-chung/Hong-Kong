@@ -1,76 +1,99 @@
-# Hong Kong Quarterly VAR Macro Forecasting Model
+# Hong Kong External-Shock Transmission Research Note
 
-Six-variable quarterly VAR/VECM pipeline for Hong Kong: external drivers (US effective federal funds rate, China nominal GDP growth) and domestic series (real GDP growth, CPI inflation, unemployment, 3-month HIBOR). Research focus: shock propagation under the currency board (Cholesky ordering is external-first by default).
+Quarterly macro-econometric project for the question:
 
-## Quick start
+> How do US monetary policy shocks and China growth shocks transmit to Hong Kong's real economy under the currency board?
+
+The current canonical panel has **113 quarters, 1998Q1-2026Q1**, and **7 variables**. For the active research plan and model hierarchy, use `CLAUDE.md`.
+
+## Quick Start
 
 ```bash
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type var
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --include-property --model-type vecm --lag-criterion bic
+MPLCONFIGDIR=/tmp/mpl_cfg python -m pytest tests/ -q --tb=short
+python -m ruff check .
+```
+
+## Current Variables
+
+Default Cholesky / recursive ordering:
+
+`us_ffr`, `china_gdp`, `hk_exports_china_yoy`, `gdp_growth`, `cpi_inflation`, `unemployment`, `hibor_3m`
+
+Property-extension ordering:
+
+`us_ffr`, `china_gdp`, `hk_exports_china_yoy`, `hk_property_price_idx`, `gdp_growth`, `cpi_inflation`, `unemployment`, `hibor_3m`
+
+| Variable | Meaning | Current source |
+|---|---|---|
+| `us_ffr` | US effective federal funds rate, quarterly mean | FRED `FEDFUNDS` |
+| `china_gdp` | China real GDP YoY growth in current dataset; name kept for code compatibility | OECD QNA `B1GQ`, `GY`; FRED nominal fallback only if OECD fails |
+| `hk_exports_china_yoy` | HK total exports to Chinese Mainland, YoY growth | C&SD table 410-50013 |
+| `gdp_growth` | HK real GDP YoY growth | C&SD table 310-30001 |
+| `cpi_inflation` | HK Composite CPI YoY inflation | C&SD table 510-60001 |
+| `unemployment` | HK unemployment rate | C&SD table 210-06101 |
+| `hibor_3m` | 3-month HIBOR | HKMA HIBOR fixing API |
+| `hk_property_price_idx` | HK private domestic property-price index; optional asset-price channel | RVD/data.gov.hk `1.4M` official All Classes index |
+
+## VAR Benchmark Run
+
+Command:
+
+```bash
 MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type var
 ```
 
-For **linting and the full test suite**, also run `pip install -r requirements-dev.txt` (pytest, ruff).
+Current diagnostics:
 
-Recommended: **`--lag-criterion bic`** (parsimonious lags; AIC can pick many lags on short samples). Use `MPLCONFIGDIR` to avoid matplotlib cache warnings.
+| Item | Result |
+|---|---|
+| Sample | 1998Q1-2026Q1 raw; 112 transformed observations |
+| Selected VAR lag | BIC p=1 |
+| Stability | max eigenvalue 0.9389, stable |
+| Johansen rank on I(1) subset | trace@95% rank 2 |
+| Main remaining model issue | residual autocorrelation in several equations |
 
-## Common options
+Key FEVD shares at horizon 8 from the current 7-variable VAR:
 
-```bash
-# Same as project default checks
-MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --max-lags 8 --max-params-ratio 0.8 --model-type var
+| Shock | Target | Share |
+|---|---:|---:|
+| `hk_exports_china_yoy` | HK GDP growth | 24.9% |
+| `china_gdp` | HK GDP growth | 16.1% |
+| `us_ffr` | HIBOR 3M | 53.7% |
+| `us_ffr` | HK unemployment | 10.6% |
 
-# Bayesian VAR (Minnesota-style)
-MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type bvar --bvar-lambda1 0.2
+## Main Property VECM
 
-# VECM (Johansen rank; see --coint-rank, --vecm-deterministic)
-MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type vecm
-
-# Auto: VAR unless parameter load exceeds threshold, then BVAR
-MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --model-type auto --auto-bvar-threshold 0.18 --bvar-lambda1 0.2
-```
-
-## Variables and ordering
-
-**Estimation column order** (default Cholesky / recursive identification):  
-`us_ffr`, `china_gdp`, `gdp_growth`, `cpi_inflation`, `unemployment`, `hibor_3m`  
-Override with `--cholesky-order col1,col2,...`.
-
-**Transforms** are data-driven (ADF + KPSS): variables classified as unit-root are first-differenced for VAR/BVAR; VECM uses levels. The README table is illustrative only — see `output/model_diagnostics.txt` after a run.
-
-| Variable | Role |
-|----------|------|
-| `us_ffr` | US effective federal funds rate (%) |
-| `china_gdp` | China nominal quarterly GDP, YoY % (FRED `CHNGDPNQDSMEI`) |
-| `gdp_growth` | HK real GDP YoY % (official series when using real CSV) |
-| `cpi_inflation` | HK CPI YoY % |
-| `unemployment` | HK unemployment rate (%) |
-| `hibor_3m` | 3-month HIBOR (%) |
-
-## Pipeline (high level)
-
-1. **Data** — Prefer `data/hk_macro_quarterly_real.csv` (see `fetch_real_data.py`, `DATA_DOWNLOAD_CHECKLIST.md`); else FRED CSV endpoints; else calibrated synthetic data.
-2. **Diagnostics** — Stationarity (ADF + KPSS), lag selection (AIC/BIC + parameter guardrail), Johansen cointegration (for VECM reporting).
-3. **Estimation** — VAR (OLS), Minnesota BVAR, or VECM.
-4. **Structural** — Cholesky IRFs, FEVD, historical decomposition; optional sign-restriction IRFs; robustness (ordering, subsamples); exploratory TVP-VAR block.
-5. **Evaluation** — Expanding-window backtests vs AR(1) and random walk; scenario forecasts with residual bootstrap bands.
-
-## Outputs (`output/`)
-
-Key artifacts include `01_raw_data.png` … `10_subsample_stability.png`, `fevd_table.csv`, `forecast_scenarios.csv`, `model_diagnostics.txt`, `methods_note.txt`, `vecm_diagnostics.txt` (when VECM runs). Forecast dates start the **first quarter after** the last observation in the estimation sample.
-
-## Real data
-
-Provide `data/hk_macro_quarterly_real.csv` with columns  
-`date,gdp_growth,cpi_inflation,unemployment,hibor_3m,china_gdp,us_ffr`  
-(quarter-start dates). Loaded automatically unless `--no-local-real-data`.
-
-## Tests
+Command:
 
 ```bash
-pip install -r requirements-dev.txt
-MPLCONFIGDIR=/tmp/mpl_cfg python -m pytest tests/test_hk_var_model.py -v --tb=short
+MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --include-property --model-type vecm --lag-criterion bic
 ```
 
-## Paper
+This keeps the same research question. Property prices enter as a Hong Kong asset-price transmission channel under the currency board, not as a new topic and not as a causal claim.
 
-LaTeX draft under `paper/` (compile per project rules if you edit `.tex`/`.bib`).
+## Important Files
+
+| File | Purpose |
+|---|---|
+| `hk_var_model.py` | Estimates the VAR, BVAR, and VECM models |
+| `fetch_real_data.py` | Rebuilds official/API data panel |
+| `data/hk_macro_quarterly_real.csv` | Canonical local data loaded first |
+| `data/source_metadata.json` | Source lineage for each variable |
+| `data/hk_macro_quarterly_property_model.csv` | Optional macro-property panel with RVD property-price growth |
+| `data/property_source_metadata.json` | Source lineage for the official RVD property sidecar |
+| `DATA_DOWNLOAD.md` | Data schema and source notes |
+| `DATA_GAPS_RESEARCH_PLAN.md` | Current macro research problems and next steps |
+| `output/model_diagnostics.txt` | Latest stationarity, lag, cointegration diagnostics |
+| `output/methods_note.txt` | Latest generated methods summary |
+
+## Current Caveats
+
+- The code column is still named `china_gdp`; in the current dataset it is documented as China real GDP YoY from OECD. If OECD fails during a future rebuild, it can fall back to FRED nominal GDP, so always check `data/source_metadata.json`.
+- For the current model hierarchy, use `CLAUDE.md`.
+- Property prices matter for Hong Kong. They are now available from the official RVD All Classes index in `data/hk_property_price_rvd_quarterly.csv` and the model-ready merged panel `data/hk_macro_quarterly_property_model.csv`. Use them as an asset-price transmission channel under the same research question.
+- Use `--include-property --model-type vecm` for the property-channel VECM. The default command remains the cleaner 7-variable VAR run.
+- `data/us_mp_shock_quarterly.csv` is a sidecar research extension for cleaner US monetary-policy shocks, not part of the canonical 7-variable baseline.

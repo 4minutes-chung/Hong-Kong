@@ -33,3 +33,6 @@ Thumbs.db
 
 # Cursor internal (keep rules)
 .cursor/projects/
+
+AGENTS.md
+CLAUDE.md
