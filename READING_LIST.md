@@ -1,6 +1,6 @@
 # Reading List — HK External-Shock Transmission Project
 
-Date: 2026-05-15  
+Date: 2026-05-24  
 Purpose: Learning-focused reading plan for model interpretation and validation (portfolio side project, not journal submission).
 
 ## Core 10 (Must Read)
@@ -25,11 +25,11 @@ Purpose: Learning-focused reading plan for model interpretation and validation (
    Why: Stronger forecast-comparison discipline than RMSE alone.  
    Extract: Compare models conditionally, not only on full-sample averages.
 
-6. Genberg, H., Liu, L.-g., Jin, X. (2006), "Hong Kong’s Economic Integration and Business Cycle Synchronisation with Mainland China and the US," HKMA RM 11/2006.  
+6. Genberg, H., Liu, L.-g., Jin, X. (2006), "Hong Kong's Economic Integration and Business Cycle Synchronisation with Mainland China and the US," HKMA RM 11/2006.  
    Why: HK-specific benchmark for US-vs-China channel decomposition.  
    Extract: Distinguish common global factors from direct China effects.
 
-7. He, D., Liao, W., Wu, T. (2015), "Hong Kong’s Growth Synchronization with China and the U.S.: A Trend and Cycle Analysis," IMF WP/15/82.  
+7. He, D., Liao, W., Wu, T. (2015), "Hong Kong's Growth Synchronization with China and the U.S.: A Trend and Cycle Analysis," IMF WP/15/82.  
    Why: Closest framing to dual-anchor HK transmission.  
    Extract: Trend/cycle separation changes interpretation.
 
@@ -57,6 +57,52 @@ Purpose: Learning-focused reading plan for model interpretation and validation (
 8. Engle, R., Granger, C. (1987), *Econometrica*, 55(2), 251-276 (ECM representation).  
 9. Romer, C., Romer, D. (2004), *AER*, 94(4), 1055-1084 (clean monetary shock construction).  
 10. Rey, H. (2015), "Dilemma not Trilemma," NBER WP 21162.
+
+## Newly Added (May 2026)
+
+Added following Prof. K. Lai's advice (2026-05-23) and the BVAR vs. VECM discussion that followed.
+
+### Papers cited in today's discussion
+
+1. Litterman, R. (1986), "Forecasting with Bayesian VARs — Five Years of Experience," *Journal of Business & Economic Statistics*, 4(1), 25-38.  
+   Why: The original Minnesota prior paper — the primary justification for why BVAR(4) is the preferred spec over VECM in small samples.  
+   Extract: Minnesota shrinkage was designed precisely for short macro time series; its small-sample dominance over unrestricted OLS is the reason BVAR, not VARX(4), is the baseline here.
+
+2. Clements, M.P., Hendry, D.F. (1998), *Forecasting Economic Time Series*, Cambridge University Press.  
+   Why: The foundational reference for the empirical finding that VARs in levels often beat ECMs/VECMs in forecasting competitions, even when cointegration is genuine.  
+   Extract: Rank misspecification in VECM — estimating the wrong number of cointegrating vectors — typically costs more forecast accuracy than the efficiency gain from imposing a correct cointegrating restriction.
+
+3. Christoffersen, P.F., Diebold, F.X. (1998), "Cointegration and Long-Horizon Forecasting," *Journal of Business & Economic Statistics*, 16(4), 450-458.  
+   Why: The most direct empirical result relevant to the BVAR-vs-VECM decision: even when cointegration exists, BVAR in levels can dominate VECM at short-to-medium horizons.  
+   Extract: Cointegration improves forecasts mainly at long horizons (h >> 8); at h=1–4 (our OOS window), BVAR in levels is competitive or better.
+
+### Additional recommended papers
+
+4. Strachan, R.W. (2003), "Valid Bayesian Estimation of the Cointegrating Error Correction Model," *Journal of Business & Economic Statistics*, 21(1), 185-195.  
+   Why: Canonical reference for Bayesian VECM estimation — the methodology behind the alexandria `VectorErrorCorrection` class with `prior_type` parameter. Read this before running BVECM to understand what the priors are actually doing.  
+   Extract: Priors on the cointegration space must be placed carefully; a flat prior on the full parameter space does not translate into a flat prior on the cointegrating rank, which can bias rank inference in small samples.
+
+5. Koop, G., Korobilis, D. (2010), "Bayesian Multivariate Time Series Methods for Empirical Macroeconomics," *Foundations and Trends in Econometrics*, 3(4), 267-358.  
+   Why: The most comprehensive reference covering both BVAR and BVECM methodology in a single source — directly relevant to the conditional BVECM step in Phase 8.4b.  
+   Extract: Chapter-level comparisons of Minnesota BVAR vs. BVECM in small samples; the authors note BVAR in levels is often preferred when cointegrating rank is uncertain, which is exactly our situation (rank=0 at 95%, rank=1 only at 90%).
+
+6. Carriero, A., Clark, T., Marcellino, M. (2015), "Bayesian VARs: Specification Choices and Forecast Accuracy," *Journal of Applied Econometrics*, 30(1), pp. TBC.  
+   Why: Systematic evaluation of BVAR specification choices (lag length, prior strength, shrinkage form) under different sample sizes — directly relevant to the Phase 8 re-estimation on an extended sample where prior-tuning needs revisiting.  
+   Extract: Optimal shrinkage is sample-size dependent; hyperparameters calibrated on one sample should be re-optimized when the sample length changes materially.
+
+### Literature Sprint additions (May 2026 — targeted gaps for Phase 6–8)
+
+7. Cushman, D.O., Zha, T. (1997), "Identifying Monetary Policy in a Small Open Economy Under Flexible Exchange Rates," *Journal of Monetary Economics*, 40(3), 731–768. **Skim abstract + Section 2 only.**  
+   Why: Canonical reference for the block-recursive SVAR where foreign variables (FFR, China GDP) are treated as exogenous to the domestic block. Direct justification for the BVARX specification. A referee who asks "why exogenous?" expects this citation.  
+   Extract: Block recursion is the standard small-open-economy identification assumption — the domestic economy cannot contemporaneously affect foreign variables within the quarter.
+
+8. Del Negro, M., Schorfheide, F. (2011), "Bayesian Macroeconometrics," in *Handbook of Bayesian Econometrics*, Oxford University Press, Chapter 7.  
+   Why: Authoritative handbook chapter on BVAR methodology. Relevant specifically for the prior sensitivity discussion (Section 3) — how ML-selected hyperparameters change as sample size grows. Read before Phase 8.3 hyperparameter re-optimization.  
+   Extract: As T → ∞, optimal shrinkage (pi1) decreases toward zero — with large samples, data dominate the prior. Re-optimizing pi1 after extending the sample is not optional; it is expected.
+
+9. Dungey, M., Pagan, A. (2000), "A Structural VAR Model of the Australian Economy," *Economic Record*, 76(235), 321–342. **Skim only.**  
+   Why: Applied example of block-recursive BVARX for a small open economy (Australia). Shows exactly how to implement and defend the exogenous-block assumption in practice. Useful as a template for the methodology section of the paper.  
+   Extract: Treating the foreign block as exogenous is standard for small open economies; the key identifying assumption is contemporaneous non-response of foreign variables to domestic shocks.
 
 ## 7-Day Reading Sprint
 
