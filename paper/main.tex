@@ -183,6 +183,18 @@ nominal GDP, in which case interpretation must be changed to ``China nominal
 activity.'' The current snapshot uses the real-activity interpretation recorded
 in \texttt{data/source\_metadata.json}.
 
+\subsection{Sample Selection and Start Date}
+
+An extension of the sample prior to 1998 was evaluated and rejected due to
+compounding empirical and institutional constraints. The binding data limitation
+is the 3-month HIBOR, which lacks standardised fixing prior to July 1996. More
+critically, including the surviving pre-1998 observations would require pooling
+data across two distinct monetary regimes. Splicing these quarters into the
+dataset crosses the 1997 Handover and the Asian Financial Crisis, introducing
+structural discontinuities that would distort the estimated covariance matrix.
+Therefore, 1998~Q1 is retained as the longest continuous, institutionally
+stable sample of the modern Linked Exchange Rate System framework.
+
 \subsection{Stationarity and Cointegration}
 
 I use ADF and KPSS tests jointly. Variables classified as unit-root by the

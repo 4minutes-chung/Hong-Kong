@@ -6,4 +6,3 @@ hibor_3m,True,HKMA hibor.fixing endperiod API (monthly -> quarterly mean); falls
 china_gdp,True,"OECD QNA CHN.B1_GE.GPSA.Q, B1GQ (GDP at market prices), GY transformation (YoY % growth), quarterly; falls back to FRED CHNGDPNQDSMEI nominal CNY GDP YoY if OECD unavailable",CHNGDPNQDSMEI,quarterly,yoy_pct
 us_ffr,True,FRED FEDFUNDS monthly -> quarterly mean,FEDFUNDS,monthly->quarterly,level_pct
 hk_exports_china_yoy,True,"C&SD table 410-50013: total exports to Chinese Mainland, monthly YoY % -> quarterly mean; cached to data/hk_exports_china_quarterly.csv",410-50013,monthly->quarterly,yoy_pct
-hk_property_price_idx,True,"RVD/data.gov.hk 1.4M official All Classes private domestic price index, monthly -> quarterly mean",1.4M,monthly->quarterly,index_level

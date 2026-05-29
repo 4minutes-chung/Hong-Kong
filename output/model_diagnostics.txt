@@ -9,29 +9,28 @@ Transforms used (ADF+KPSS confirmed):
   - us_ffr: level (last_level=3.64)
   - china_gdp: first_diff (last_level=5.00)
   - hk_exports_china_yoy: level (last_level=34.00)
-  - hk_property_price_idx: first_diff (last_level=308.10)
   - gdp_growth: level (last_level=5.90)
   - cpi_inflation: first_diff (last_level=1.50)
   - unemployment: first_diff (last_level=3.70)
   - hibor_3m: level (last_level=2.59)
 
 Lag-selection diagnostics:
-  criterion=bic
+  criterion=aic
   aic_lag=8, bic_lag=1
-  selected_lag=1
-  params_per_equation=9
+  selected_lag=8
+  params_per_equation=57
   n_observations=112
-  params_obs_ratio=0.080
+  params_obs_ratio=0.509
   guardrail_triggered=False
 
 Cointegration diagnostics (Johansen):
-  i1_vars=['china_gdp', 'hk_property_price_idx', 'cpi_inflation', 'unemployment']
-  det_order=0, k_ar_diff=1
-  rank_trace(90/95/99)=1/1/1
-  rank_maxeig(90/95/99)=1/1/1
+  i1_vars=['china_gdp', 'cpi_inflation', 'unemployment']
+  det_order=0, k_ar_diff=7
+  rank_trace(90/95/99)=2/1/1
+  rank_maxeig(90/95/99)=2/1/1
   selected_rank_auto(trace@95%)=1
 
 VECM specification:
   coint_rank=1
-  lag_diff=1
+  lag_diff=7
   deterministic=ci
