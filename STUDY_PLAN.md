@@ -36,7 +36,7 @@ Full evidence trail: `TEST.ipynb` cells 37–56. Lesson files 01–20 in the les
 ## Phase 6 — Code Verification ✓ COMPLETE (2026-05-25)
 
 - **6.1** Monkey-patch confirmed targeted — replaces broken `exogenous == []` numpy comparison, does not alter inference logic.
-- **6.2** OOS loop re-run: training window expands t=85→111, no look-ahead, 15/18 BVAR wins confirmed.
+- **6.2** OOS loop re-run: training window expands t=85→111, no look-ahead, 18/18 BVAR wins confirmed.
 - **6.3** RMSE ratio = RMSE(BVAR)/RMSE(VARX1) — not Theil's U. Ratio < 1 = BVAR beats VARX(1).
 - **6.4** No burn-in applies. Minnesota BVAR with fixed Σ has closed-form Normal posterior; alexandria draws analytically (i.i.d.), no Markov chain exists.
 - **6.5** pi4=100 (library default, uninformative on exogenous — correct for small open economy). pi2=0.5 sensitivity: BVAR wins 18/18. Results robust.
