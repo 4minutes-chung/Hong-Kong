@@ -1,4 +1,0 @@
-# Optional: tests and CI
--r requirements.txt
-pytest>=7.0
-ruff>=0.6

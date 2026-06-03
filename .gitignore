@@ -22,6 +22,8 @@ paper/*.toc
 paper/*.synctex.gz
 paper/*.fdb_latexmk
 paper/*.fls
+paper/*.pdf
+paper/build/
 
 # OS
 .DS_Store
@@ -34,11 +36,21 @@ Thumbs.db
 # Cursor internal (keep rules)
 .cursor/projects/
 
+# Session/internal files
 AGENTS.md
 CLAUDE.md
+STUDY_PLAN.md
 
-TEST.ipynb
+# Archive (exploration, old notebooks, reading material)
+archive/
 
+# Old files (now in archive)
 READING_PDF_MD/
-
+READING_LIST.md
 HANDOFF_*.md
+research_notes_*/
+
+# Misc
+*.bak
+.venv/
+.ruff_cache/
