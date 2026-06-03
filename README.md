@@ -1,99 +1,120 @@
-# Hong Kong External-Shock Transmission Research Note
+# HK Monetary Transmission — BVAR(4) Evidence
 
-Quarterly macro-econometric project for the question:
+> How do US monetary policy and China growth shocks transmit to Hong Kong GDP under the currency board?
+> **1998Q1–2025Q4 | 112 quarters | BVAR(4) Minnesota prior | Cholesky identification**
 
-> How do US monetary policy shocks and China growth shocks transmit to Hong Kong's real economy under the currency board?
+---
 
-The current canonical panel has **113 quarters, 1998Q1-2026Q1**, and **7 variables**. For the active research plan and model hierarchy, use `CLAUDE.md`.
+## Transmission Channels
 
-## Quick Start
+```
+US FFR ──→ HIBOR ──┬──→ PROPERTY ──→ ┐
+                   │                  ├──→ GDP
+                   └──────────────────┘  (direct credit/mortgage)
 
-```bash
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type var
-MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --include-property --model-type vecm --lag-criterion bic
-MPLCONFIGDIR=/tmp/mpl_cfg python -m pytest tests/ -q --tb=short
-python -m ruff check .
+CHINA GDP ──→ EXPORTS ──────────────────→ GDP
 ```
 
-## Current Variables
+---
 
-Default Cholesky / recursive ordering:
+## GDP Variance Decomposition (FEVD, h=8)
 
-`us_ffr`, `china_gdp`, `hk_exports_china_yoy`, `gdp_growth`, `cpi_inflation`, `unemployment`, `hibor_3m`
-
-Property-extension ordering:
-
-`us_ffr`, `china_gdp`, `hk_exports_china_yoy`, `hk_property_price_idx`, `gdp_growth`, `cpi_inflation`, `unemployment`, `hibor_3m`
-
-| Variable | Meaning | Current source |
-|---|---|---|
-| `us_ffr` | US effective federal funds rate, quarterly mean | FRED `FEDFUNDS` |
-| `china_gdp` | China real GDP YoY growth in current dataset; name kept for code compatibility | OECD QNA `B1GQ`, `GY`; FRED nominal fallback only if OECD fails |
-| `hk_exports_china_yoy` | HK total exports to Chinese Mainland, YoY growth | C&SD table 410-50013 |
-| `gdp_growth` | HK real GDP YoY growth | C&SD table 310-30001 |
-| `cpi_inflation` | HK Composite CPI YoY inflation | C&SD table 510-60001 |
-| `unemployment` | HK unemployment rate | C&SD table 210-06101 |
-| `hibor_3m` | 3-month HIBOR | HKMA HIBOR fixing API |
-| `hk_property_price_idx` | HK private domestic property-price index; optional asset-price channel | RVD/data.gov.hk `1.4M` official All Classes index |
-
-## VAR Benchmark Run
-
-Command:
-
-```bash
-MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --lag-criterion bic --model-type var
+```
+property → GDP  ████████████████████░░░░░░░░░░  20.9%  ← dominant driver
+exports  → GDP  ████████████████░░░░░░░░░░░░░░  16.5%
+hibor    → GDP  ████████░░░░░░░░░░░░░░░░░░░░░░   8.3%
 ```
 
-Current diagnostics:
+---
 
-| Item | Result |
+## IRF Significance Map (90% credibility bands)
+
+```
+              h=1    h=2    h=4
+hibor → prop   ●      ○      ○     fast, fades after h=1
+hibor → gdp    ●      ●      ●     persistent through h=4
+prop  → gdp    ●      ●      ○     amplifies h=1–2
+exp   → gdp    ●      ●      ○     robust at h=1–2
+
+●  significant (CI excludes zero)
+○  CI crosses zero
+```
+
+---
+
+## Speed Asymmetry Within Channel 1
+
+```
+         h=1    h=2    h=4    h=8
+prop     [●]    [○]    [○]    [○]   hits hard, fades
+credit   [●]    [●]    [●]    [○]   sustained via mortgage/investment
+```
+
+Property is the primary GDP variance amplifier (20.9% FEVD).  
+Direct credit channel outlasts it — that's the persistence.
+
+---
+
+## ZLB Asymmetry (HIBOR → Property)
+
+```
+Normal rate environment  (FFR ≥ 0.25%)   β = −2.68  ✓  significant
+ZIRP                     (FFR < 0.25%)   β = −0.60  ✗  CI spans zero
+
+2009Q1–2022Q1: 36/112 obs at zero bound
+```
+
+Monetary transmission impaired when rates are pinned at floor.
+
+---
+
+## Model Spec
+
+```
+BVAR(4) Minnesota prior
+  pi1 = 0.085   own-lag shrinkage
+  pi2 = 1.0     cross-lag shrinkage (no decay)
+  pi4 = 100     exogenous (uninformative)
+  delta = [0.442, 0.627, 0.418, 0.545, 0.735, 0.991]
+          hibor  exp    prop  gdp   cpi   unemp   ← ML-optimised
+
+Cholesky order:  hibor → exports → property → gdp → cpi → unemployment
+Exogenous:       us_ffr, china_gdp  (contemporaneous only, q=0)
+OOS RMSE:        BVAR wins 18/18 cells vs VARX(1) benchmark
+```
+
+---
+
+## Robustness
+
+```
+Structural stability   Chow GDP 2008 p=0.15 ✓   GDP 2020 p=0.26 ✓
+                       CPI COVID mean break p=0.03  (acknowledged)
+                       Bai-Perron: 0 breaks in all variables ✓
+
+LP-IRF (Jordà 2005)    all 4 channels replicated, HAC SEs ✓
+Δu robustness          headline IRFs unchanged with Δunemployment ✓
+FFR lag sensitivity    VARX(4,1) LB unchanged, keep q=0 ✓
+Johansen rank=0        VECM not warranted ✓
+```
+
+---
+
+## Files
+
+| File | Role |
 |---|---|
-| Sample | 1998Q1-2026Q1 raw; 112 transformed observations |
-| Selected VAR lag | BIC p=1 |
-| Stability | max eigenvalue 0.9389, stable |
-| Johansen rank on I(1) subset | trace@95% rank 2 |
-| Main remaining model issue | residual autocorrelation in several equations |
+| `HK_BVAR_Final.ipynb` | Canonical — all results, 6 sections |
+| `HK_BVAR_Exploration.ipynb` | Scratch space |
+| `fetch_real_data.py` | Rebuild data from APIs |
+| `paper/main.tex` | Paper draft |
+| `data_source.md` | Variable definitions and stationarity results |
 
-Key FEVD shares at horizon 8 from the current 7-variable VAR:
+---
 
-| Shock | Target | Share |
-|---|---:|---:|
-| `hk_exports_china_yoy` | HK GDP growth | 24.9% |
-| `china_gdp` | HK GDP growth | 16.1% |
-| `us_ffr` | HIBOR 3M | 53.7% |
-| `us_ffr` | HK unemployment | 10.6% |
-
-## Main Property VECM
-
-Command:
+## Refresh Data
 
 ```bash
-MPLCONFIGDIR=/tmp/mpl_cfg python hk_var_model.py --include-property --model-type vecm --lag-criterion bic
+python fetch_real_data.py
+# → data/hk_macro_varx_ready.csv
 ```
-
-This keeps the same research question. Property prices enter as a Hong Kong asset-price transmission channel under the currency board, not as a new topic and not as a causal claim.
-
-## Important Files
-
-| File | Purpose |
-|---|---|
-| `hk_var_model.py` | Estimates the VAR, BVAR, and VECM models |
-| `fetch_real_data.py` | Rebuilds official/API data panel |
-| `data/hk_macro_quarterly_real.csv` | Canonical local data loaded first |
-| `data/source_metadata.json` | Source lineage for each variable |
-| `data/hk_macro_quarterly_property_model.csv` | Optional macro-property panel with RVD property-price growth |
-| `data/property_source_metadata.json` | Source lineage for the official RVD property sidecar |
-| `DATA_DOWNLOAD.md` | Data schema and source notes |
-| `DATA_GAPS_RESEARCH_PLAN.md` | Current macro research problems and next steps |
-| `output/model_diagnostics.txt` | Latest stationarity, lag, cointegration diagnostics |
-| `output/methods_note.txt` | Latest generated methods summary |
-
-## Current Caveats
-
-- The code column is still named `china_gdp`; in the current dataset it is documented as China real GDP YoY from OECD. If OECD fails during a future rebuild, it can fall back to FRED nominal GDP, so always check `data/source_metadata.json`.
-- For the current model hierarchy, use `CLAUDE.md`.
-- Property prices matter for Hong Kong. They are now available from the official RVD All Classes index in `data/hk_property_price_rvd_quarterly.csv` and the model-ready merged panel `data/hk_macro_quarterly_property_model.csv`. Use them as an asset-price transmission channel under the same research question.
-- Use `--include-property --model-type vecm` for the property-channel VECM. The default command remains the cleaner 7-variable VAR run.
-- `data/us_mp_shock_quarterly.csv` is a sidecar research extension for cleaner US monetary-policy shocks, not part of the canonical 7-variable baseline.
