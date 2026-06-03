@@ -3,6 +3,8 @@
 > How do US monetary policy and China growth shocks transmit to Hong Kong GDP under the currency board?
 > **1998Q1–2025Q4 | 112 quarters | BVAR(4) Minnesota prior | Cholesky identification**
 
+![HIBOR vs US FFR](output/readme_hibor_ffr.png)
+
 ---
 
 ## Transmission Channels
@@ -82,6 +84,8 @@ Cholesky order:  hibor → exports → property → gdp → cpi → unemployment
 Exogenous:       us_ffr, china_gdp  (contemporaneous only, q=0)
 OOS RMSE:        BVAR wins 18/18 cells vs VARX(1) benchmark
 ```
+
+![OOS RMSE Heatmap](output/readme_oos_rmse.png)
 
 ---
 
