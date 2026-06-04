@@ -96,7 +96,7 @@ Structural stability   Chow GDP 2008 p=0.15 ✓   GDP 2020 p=0.26 ✓
                        CPI COVID mean break p=0.03  (acknowledged)
                        Bai-Perron: 0 breaks in all variables ✓
 
-LP-IRF (Jordà 2005)    all 4 channels replicated, HAC SEs ✓
+LP-IRF (Jordà 2005)    3 channels strong, exports→GDP borderline, HAC SEs ✓
 Δu robustness          headline IRFs unchanged with Δunemployment ✓
 FFR lag sensitivity    VARX(4,1) LB unchanged, keep q=0 ✓
 Johansen rank=0        VECM not warranted ✓
