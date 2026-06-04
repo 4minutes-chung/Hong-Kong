@@ -320,7 +320,11 @@ from 3,000 independent draws. At horizon $h = 1$, the Cholesky impact matrix is
 deterministic given $\boldsymbol{\Sigma}$, so posterior bands have zero width;
 $h = 2$ is the first horizon with genuine posterior uncertainty. All four
 out-of-sample RMSE comparisons at $h \in \{1, 2, 4\}$ favour the BVAR over
-a VARX(1) baseline across all six equations (18/18 cells).
+a VARX(1) baseline across all six equations (18/18 cells). Forecast
+evaluations are conducted conditionally: consistent with the small open
+economy assumption, the model is provided with the realised paths of the
+strictly exogenous variables (\texttt{us\_ffr} and \texttt{china\_gdp}) to
+isolate the accuracy of the domestic transmission mechanism.
 
 \subsection{Sample Selection}
 \label{sec:sample}
