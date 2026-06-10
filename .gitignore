@@ -40,6 +40,7 @@ Thumbs.db
 AGENTS.md
 CLAUDE.md
 STUDY_PLAN.md
+PAPER_PROBLEMS.md
 
 # Archive (exploration, old notebooks, reading material)
 archive/
@@ -54,3 +55,6 @@ research_notes_*/
 *.bak
 .venv/
 .ruff_cache/
+
+# MarkItDown conversion sidecars
+/paper/main.md

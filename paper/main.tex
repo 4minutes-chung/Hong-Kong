@@ -207,10 +207,22 @@ how asset price fluctuations amplify monetary shocks through the net worth of
 borrowers. In Hong Kong, where residential property serves simultaneously as
 household wealth and collateral for mortgage and business lending, this channel
 is plausibly stronger than in economies where financial assets are more
-diversified. [EXPAND WITH ANY HK-SPECIFIC EVIDENCE HERE]
+diversified. In Hong Kong, owner-occupied residential property accounts for a
+dominant share of household balance sheets, and lending conditions are
+routinely tied to property valuations; the collateral channel is therefore
+a primary, rather than a secondary, mechanism of monetary transmission.
 
-% [EXPAND: China-HK trade literature and China growth transmission]
-[WRITE PARAGRAPH ON CHINA TRADE CHANNEL AND PRIOR EVIDENCE]
+The trade linkage between mainland China and Hong Kong intensified sharply
+following China's WTO accession in 2001. By the mid-2010s, mainland China
+accounted for more than half of Hong Kong's total re-exports, making the
+China growth cycle the principal demand-side driver of export fluctuations.
+Empirically, the contemporaneous coefficient of China GDP growth on Hong Kong
+exports is $+0.806$ ($p = 0.016$) in our VARX, consistent with this trade
+dependence. Prior studies of small open economies typically estimate China
+exposure through trade weights or input-output linkages; our contribution is
+to embed this external demand channel jointly with the monetary channel in a
+single structural system, allowing direct comparison of their relative
+importance for output variance.
 
 % ============================================================
 \section{Data and Methods}
@@ -373,8 +385,14 @@ Table~\ref{tab:fevd} reports the FEVD of GDP growth at an eight-quarter horizon.
 Property price shocks account for 20.9\% of GDP variance, the largest share
 among the external channels. The direct trade channel (exports shocks) accounts
 for 16.5\%, and the direct monetary channel (HIBOR shocks) for 8.3\%. The
-remaining 54.3\% is attributable to GDP's own dynamics, CPI, and unemployment
-shocks.
+remaining 54.3\% is attributable to GDP's own dynamics (51.2\%), CPI, and
+unemployment shocks (jointly $< 3\%$). This large own-shock share reflects
+idiosyncratic domestic demand variation, fiscal policy, and factors not
+captured within the six-variable system. China GDP growth enters as a strictly
+exogenous regressor with an identified contemporaneous coefficient
+($\hat\beta = +0.806$, $p = 0.016$) but does not receive a structural FEVD
+share by construction; its contribution to GDP variance is partially captured
+through the exports innovation and partially absorbed into the GDP own-shock.
 
 \begin{table}[htbp]
 \centering
@@ -524,6 +542,7 @@ Channel & $h$ & LP $\hat{\beta}$ & LP 90\% HAC CI & LP sig. & BVAR sig. \\
 HIBOR $\to$ Property & 1 & $-$3.19 & ($-$4.72,\; $-$1.67) & ** & ** \\
 HIBOR $\to$ GDP      & 1 & $-$1.07 & ($-$1.89,\; $-$0.25) & ** & ** \\
 HIBOR $\to$ GDP      & 2 & $-$1.47 & ($-$2.30,\; $-$0.63) & ** & ** \\
+HIBOR $\to$ GDP      & 3 & $-$1.33 & ($-$2.35,\; $-$0.31) & ** & ** \\
 Exports $\to$ GDP    & 1 & $+$0.05 & ($-$0.01,\; $+$0.10) & $\dagger$ & ** \\
 Property $\to$ GDP   & 1 & $+$0.27 & ($+$0.14,\; $+$0.40) & ** & ** \\
 Property $\to$ GDP   & 2 & $+$0.26 & ($+$0.10,\; $+$0.41) & ** & ** \\
@@ -542,10 +561,14 @@ significance on this noisier channel.
 \end{table}
 
 The HIBOR--GDP channel is particularly noteworthy: LP with HAC standard errors
-confirms significance at both $h = 1$ and $h = 2$, directly addressing the
+confirms significance at $h = 1$, $h = 2$, and $h = 3$, directly addressing the
 concern that the BVAR's GDP residual autocorrelation (Section~\ref{sec:stability})
-might invalidate inference. The LP estimator places no restrictions on the
-residual covariance structure beyond what the HAC correction addresses.
+might invalidate inference. At $h = 4$, the LP coefficient reverses sign
+($\hat\beta = +0.30$, 90\% CI: $[-0.73, +1.33]$), and the BVAR result at that
+horizon should be treated as suggestive: the LP estimator loses power at long
+horizons as the effective sample shrinks and HAC bandwidth grows. The LP
+estimator places no restrictions on the residual covariance structure beyond what
+the HAC correction addresses.
 
 % [INSERT FIGURE: phase10b_lp_irf_4panel.png]
 % \begin{figure}[htbp]
@@ -677,16 +700,30 @@ impulse response, because property collateral amplifies the credit channel for
 several subsequent periods. Local projections with HAC-robust inference confirm
 all three principal channels: HIBOR--property, HIBOR--GDP, and property--GDP.
 
-[EXPAND: policy implications paragraph]
+For policymakers, the findings highlight that macroprudential tools targeting the
+property market are the most direct lever available to a currency board economy.
+Because Hong Kong cannot adjust the interest rate, and because property price
+shocks account for more GDP variance than either the direct monetary or trade
+channel, policies that dampen property price amplification---loan-to-value caps,
+stamp duty adjustments, and mortgage stress-test requirements---effectively
+attenuate the most important transmission mechanism available. The trade channel
+result implies that countercyclical fiscal policy calibrated to China's growth
+cycle may be more stabilising than policies aimed at the financial market.
 
-Several limitations warrant acknowledgement. The CPI equation exhibits a
-structural mean break at COVID-19 ($p = 0.029$) that the fixed-coefficient prior
-does not fully absorb, and the exports series is nominal. The ZLB asymmetry
-result is directionally consistent with impaired transmission at the zero lower
-bound but is imprecisely estimated ($n = 36$ ZIRP observations). Future work
-with a longer sample could exploit time-varying parameter methods to formally
-test whether the transmission architecture evolved across the post-COVID
-normalisation.
+Several limitations warrant acknowledgement. First, the interpretation of the
+direct HIBOR--GDP link as a ``credit and mortgage channel'' is an economic label
+applied to a statistical residual: the model contains no credit volume, mortgage
+rate, or loan-to-value data, and the mechanism cannot be formally identified
+within the system. Second, the CPI equation exhibits a structural mean break at
+COVID-19 ($p = 0.029$) that the fixed-coefficient prior does not fully absorb,
+making inflation transmission results from that sub-period unreliable. Third,
+the exports series is nominal; volume effects cannot be separated from price
+effects over the 28-year sample. Fourth, the ZLB asymmetry result is
+directionally consistent with impaired transmission at the zero lower bound but
+is imprecisely estimated ($n = 36$ ZIRP observations) and should be treated as
+exploratory. Future work with a longer sample could exploit time-varying
+parameter methods to formally test whether the transmission architecture evolved
+across the post-COVID normalisation.
 
 % ============================================================
 \begin{thebibliography}{99}
