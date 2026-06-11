@@ -28,16 +28,16 @@ Hong Kong's Linked Exchange Rate System (LERS) eliminates the exchange rate
 channel of monetary transmission, making it an unusually clean laboratory for
 identifying how external shocks propagate through domestic asset markets and
 trade linkages. This paper estimates a Bayesian VAR with Minnesota prior
-(BVAR(4)) over 112 quarterly observations from 1998~Q1 to 2026~Q1,
+(BVAR(4)) over 113 quarterly observations from 1998~Q1 to 2026~Q1,
 identifying two external transmission channels: a monetary channel operating
 through US interest rates and the interbank market, and a trade channel driven
 by China's growth cycle. The main finding is a speed asymmetry within the
 monetary channel: HIBOR shocks transmit to property prices within one quarter
 (fast, short-lived), but the HIBOR--GDP link persists through four quarters via
 direct credit and mortgage effects. Property price fluctuations are the dominant
-source of GDP variance in this system (20.9\% at an eight-quarter horizon),
+source of GDP variance in this system (20.6\% at an eight-quarter horizon),
 larger than the direct trade channel (16.5\%) and direct monetary channel
-(8.3\%). Local projection estimates with HAC-robust standard errors confirm all
+(8.6\%). Local projection estimates with HAC-robust standard errors confirm all
 four transmission channels at key horizons.
 \end{abstract}
 
@@ -65,7 +65,7 @@ authorities cannot offset. What remains is the question this paper addresses:
 through which domestic channels do those imported interest rate movements
 transmit to output, and with what speed?
 
-We answer this question using a Bayesian VAR estimated on 112 quarterly
+We answer this question using a Bayesian VAR estimated on 113 quarterly
 observations from 1998~Q1 to 2026~Q1. The model includes six endogenous
 variables---the three-month HIBOR, exports to China, property prices, GDP
 growth, CPI inflation, and the unemployment rate---with the US federal funds
@@ -80,9 +80,9 @@ despite the short-lived property price impact, the HIBOR--GDP link is
 significant at horizons one through four, suggesting a direct credit and
 mortgage channel that sustains monetary transmission after the property price
 effect fades. Third, forecast error variance decomposition (FEVD) attributes
-20.9\% of GDP variance to property price shocks at an eight-quarter horizon---
+20.6\% of GDP variance to property price shocks at an eight-quarter horizon---
 more than the direct contribution of trade shocks (16.5\%) or HIBOR shocks
-(8.3\%). Fourth, a China GDP growth shock raises exports within the quarter and
+(8.6\%). Fourth, a China GDP growth shock raises exports within the quarter and
 propagates to GDP at horizons one and two.
 
 % ── CONTRIBUTION PARAGRAPH ──────────────────────────────────────────────────
@@ -231,7 +231,7 @@ importance for output variance.
 \subsection{Data}
 \label{sec:data_sources}
 
-The dataset covers 112 quarterly observations from 1998~Q1 to 2026~Q1.
+The dataset covers 113 quarterly observations from 1998~Q1 to 2026~Q1.
 The start date is regime-justified rather than instrument-constrained: the
 1997 handover and the Asian financial crisis created a structural break in
 virtually every HK macroeconomic series, and extending the sample backward
@@ -295,7 +295,7 @@ We estimate a Bayesian VAR of order four,
 where $\mathbf{y}_t$ is the $6 \times 1$ vector of endogenous variables in the
 Cholesky ordering described in Section~\ref{sec:identification}, and
 $\mathbf{z}_t = (\texttt{us\_ffr}_t,\, \texttt{china\_gdp}_t)'$ is the exogenous block.
-The model has $k = 28$ parameters per equation and $T_{\mathrm{eff}} = 108$ observations
+The model has $k = 27$ parameters per equation and $T_{\mathrm{eff}} = 109$ observations
 after conditioning on four initial lags.
 
 \textbf{Prior.}
@@ -382,9 +382,9 @@ ordering, produce qualitatively consistent results at the key horizons.
 \label{sec:fevd}
 
 Table~\ref{tab:fevd} reports the FEVD of GDP growth at an eight-quarter horizon.
-Property price shocks account for 20.9\% of GDP variance, the largest share
+Property price shocks account for 20.6\% of GDP variance, the largest share
 among the external channels. The direct trade channel (exports shocks) accounts
-for 16.5\%, and the direct monetary channel (HIBOR shocks) for 8.3\%. The
+for 16.5\%, and the direct monetary channel (HIBOR shocks) for 8.6\%. The
 remaining 54.3\% is attributable to GDP's own dynamics (51.2\%), CPI, and
 unemployment shocks (jointly $< 3\%$). This large own-shock share reflects
 idiosyncratic domestic demand variation, fiscal policy, and factors not
@@ -402,9 +402,9 @@ through the exports innovation and partially absorbed into the GDP own-shock.
 \toprule
 Shock source & Share of GDP variance (\%) \\
 \midrule
-Property prices (hk\_property\_price\_qoq) & 20.9 \\
+Property prices (hk\_property\_price\_qoq) & 20.6 \\
 Exports to China (hk\_exports\_china\_yoy) & 16.5 \\
-HIBOR (hibor\_3m)                          &  8.3 \\
+HIBOR (hibor\_3m)                          &  8.6 \\
 GDP own                                    & 54.3 \\
 \midrule
 Total                                      & 100.0 \\
@@ -486,14 +486,14 @@ the collateral mechanism into GDP at $h = 1$ and $h = 2$) and a \emph{slow
 direct sub-channel} (HIBOR affects GDP through credit costs, mortgage rates,
 and investment adjustment, persisting through $h = 4$ after the property price
 effect has faded). The FEVD evidence reinforces this interpretation: property
-shocks account for 20.9\% of GDP variance at $h = 8$ even though their
+shocks account for 20.6\% of GDP variance at $h = 8$ even though their
 impulse response is significant for only one quarter.
 
 \textbf{Channel~2: China growth to Hong Kong GDP.}
 A positive China GDP growth shock raises Hong Kong exports and propagates to GDP
 at $h = 1$ and $h = 2$ before fading by $h = 4$. The persistence profile of
 the trade channel is broadly similar to that of the direct monetary channel,
-but the FEVD share is larger (16.5\% vs. 8.3\% for HIBOR direct), reflecting
+but the FEVD share is larger (16.5\% vs. 8.6\% for HIBOR direct), reflecting
 the greater importance of demand fluctuations from mainland China relative to
 interest rate variation in explaining aggregate output dynamics over a
 multi-quarter horizon.
@@ -630,7 +630,7 @@ relationship and validating the BVAR-in-levels approach.
 
 We test whether monetary transmission is asymmetric across interest rate
 regimes. Define ZIRP$_t = 1$ if \texttt{us\_ffr}$_t < 0.25$\%, capturing the
-US near-zero rate environment from 2009~Q1 to 2022~Q1 ($n = 36$ of 112
+US near-zero rate environment from 2009~Q1 to 2022~Q1 ($n = 36$ of 113
 observations, 32.1\% of the sample). A threshold LP-IRF at $h = 1$ yields a
 normal-regime coefficient of $\hat{\beta}_{\text{normal}} = -2.675$ (90\% CI:
 $[-3.826, -1.523]$, significant) and a ZIRP-regime coefficient of
@@ -664,11 +664,11 @@ confirms significance regardless. We retain VARX(4,0) as the baseline.
 % 4 paragraphs:
 %
 % Para 1 — Restate question and method (2 sentences)
-%   "This paper estimated... using BVAR(4) over 112 quarters..."
+%   "This paper estimated... using BVAR(4) over 113 quarters..."
 %
 % Para 2 — Main findings (4–5 sentences)
 %   State the speed asymmetry as the central finding.
-%   State the FEVD hierarchy (property 20.9 > exports 16.5 > HIBOR direct 8.3).
+%   State the FEVD hierarchy (property 20.6 > exports 16.5 > HIBOR direct 8.6).
 %   State the LP confirmation.
 %   State the ZLB asymmetry as a suggestive result.
 %
@@ -685,7 +685,7 @@ confirms significance regardless. We retain VARX(4,0) as the baseline.
 
 This paper examined how external shocks --- US monetary policy tightening and
 China growth slowdowns --- transmit to Hong Kong's real economy under the
-currency board. Using a BVAR(4) with Minnesota prior estimated on 112 quarterly
+currency board. Using a BVAR(4) with Minnesota prior estimated on 113 quarterly
 observations, we identified two transmission channels operating at different
 speeds.
 
@@ -695,7 +695,7 @@ channel of \citet{BernankeGertler1989}, but the property price response is
 short-lived. The direct HIBOR--GDP link, by contrast, persists through four
 quarters, reflecting credit costs and mortgage rate adjustments that continue
 to bind after the asset price response has faded. Property price shocks are the
-dominant source of GDP variance (20.9\% at $h = 8$) despite the transient
+dominant source of GDP variance (20.6\% at $h = 8$) despite the transient
 impulse response, because property collateral amplifies the credit channel for
 several subsequent periods. Local projections with HAC-robust inference confirm
 all three principal channels: HIBOR--property, HIBOR--GDP, and property--GDP.
