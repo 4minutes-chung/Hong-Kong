@@ -70,20 +70,9 @@ Monetary transmission impaired when rates are pinned at floor.
 
 ---
 
-## Model Spec
+## Model
 
-```
-BVAR(4) Minnesota prior
-  pi1 = 0.085   own-lag shrinkage
-  pi2 = 1.0     cross-lag shrinkage (no decay)
-  pi4 = 100     exogenous (uninformative)
-  delta = [0.442, 0.627, 0.418, 0.545, 0.735, 0.991]
-          hibor  exp    prop  gdp   cpi   unemp   ← ML-optimised
-
-Cholesky order:  hibor → exports → property → gdp → cpi → unemployment
-Exogenous:       us_ffr, china_gdp  (contemporaneous only, q=0)
-OOS RMSE:        BVAR wins 18/18 cells vs VARX(1) benchmark
-```
+BVAR(4), Minnesota prior, ML-optimised hyperparameters. Cholesky ordering: hibor → exports → property → gdp → cpi → unemployment. Exogenous: us\_ffr, china\_gdp (contemporaneous). OOS RMSE: BVAR wins 18/18 cells vs VARX(1). Full specification in `paper/main.tex` §3.
 
 ![OOS RMSE Heatmap](output/readme_oos_rmse.png)
 

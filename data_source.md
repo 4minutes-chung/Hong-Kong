@@ -1,8 +1,8 @@
 # Data Source Reference
 
 **Project:** Hong Kong BVAR — Monetary and China Growth Transmission  
-**Final model:** BVAR(4) Minnesota prior, HIBOR-first Cholesky ordering  
-**Sample:** 1998 Q1 – 2025 Q4 | 112 quarterly observations  
+**Model:** BVAR(4) Minnesota prior, HIBOR-first Cholesky ordering  
+**Sample:** 1998 Q1 – 2026 Q1 | 113 quarterly observations  
 **Model-ready file:** `data/hk_macro_varx_ready.csv`
 
 ---
@@ -55,7 +55,7 @@
 
 ---
 
-## Stationarity Results (ADF + KPSS, Phase 7.2, n=112)
+## Stationarity Results (ADF + KPSS, n=113)
 
 | Variable | ADF p | KPSS p | Verdict |
 |---|---|---|---|
@@ -66,9 +66,7 @@
 | `cpi_inflation` | 0.171 | 0.016 | I(1) |
 | `unemployment` | 0.091 | 0.010 | I(1) |
 
-I(1) endogenous variables: unemployment, cpi_inflation.
-Further transformation might reduce explainatory power, relying on Bayesian Shrinkage to handle.
-Johansen test  finds rank=0 — no cointegrating relationship, VECM not warranted.
+I(1) endogenous variables: unemployment, cpi_inflation. Both enter the BVAR in levels; Minnesota shrinkage handles the near-unit-root behaviour without differencing. Johansen trace and max-eigenvalue tests (endogenous I(1) block only) find rank=0 — no cointegrating relationship; VECM not warranted.
 
 ---
 
