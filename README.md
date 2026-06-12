@@ -98,7 +98,7 @@ Johansen rank=0        VECM not warranted ✓
 | File | Role |
 |---|---|
 | `HK_BVAR_Final.ipynb` | Canonical — all results, 6 sections |
-| `HK_BVAR_Supplementary_Analysis.ipynb` | Baseline development and supplementary checks |
+| `HK_BVAR_Exploration.ipynb` | Baseline development, model selection, robustness checks |
 | `fetch_real_data.py` | Rebuild data from APIs |
 | `paper/main.tex` | Paper draft |
 | `data_source.md` | Variable definitions and stationarity results |
