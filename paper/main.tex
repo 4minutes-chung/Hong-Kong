@@ -14,8 +14,8 @@
 \onehalfspacing
 \setlength{\parskip}{0pt}
 
-\title{External Shock Transmission to Hong Kong Under the Currency Board:\\
-Bayesian VAR Evidence}
+\title{Imported Rates and Domestic Amplification:\\
+BVAR Evidence from Hong Kong's Currency Board}
 \author{Steven Chung}
 \date{\today}
 
@@ -27,414 +27,298 @@ Bayesian VAR Evidence}
 Hong Kong's Linked Exchange Rate System (LERS) eliminates the exchange rate
 channel of monetary transmission, making it an unusually clean laboratory for
 identifying how external shocks propagate through domestic asset markets and
-trade linkages. This paper estimates a Bayesian VAR with Minnesota prior
-(BVAR(4)) over 113 quarterly observations from 1998~Q1 to 2026~Q1,
-identifying two external transmission channels: a monetary channel operating
-through US interest rates and the interbank market, and a trade channel driven
-by China's growth cycle. The main finding is a speed asymmetry within the
-monetary channel: HIBOR shocks transmit to property prices within one quarter
-(fast, short-lived), but the HIBOR--GDP link persists through four quarters via
-direct credit and mortgage effects. Property price fluctuations are the dominant
-source of GDP variance in this system (20.6\% at an eight-quarter horizon),
-larger than the direct trade channel (16.5\%) and direct monetary channel
-(8.6\%). Local projection estimates with HAC-robust standard errors confirm all
-four transmission channels at key horizons.
+trade linkages. This paper estimates a Bayesian VAR of order four with Minnesota
+prior over 113 quarterly observations from 1998~Q1 to 2026~Q1, with the US
+federal funds rate and China's GDP growth entering as block-exogenous forcing
+variables. US rate conditions pass through mechanically to HIBOR under the
+currency board. GDP propagation is amplified mainly through the property market:
+property price shocks explain 20.7\% of GDP forecast error variance at an
+eight-quarter horizon, exceeding the direct trade channel (exports: 16.4\%) and
+direct monetary channel (HIBOR: 8.4\%). The direct HIBOR--GDP link is
+more persistent than the property sub-channel, remaining significant through
+four quarters. Recursive local projections support the fast HIBOR--property
+and property--GDP timing; the exports--GDP channel is significant in the BVAR
+but weakens in LP after conditioning on current China GDP growth. This is not
+mainly a forecasting paper; out-of-sample RMSE comparisons serve as model
+discipline only. Recursive identification and residual autocorrelation
+limitations are stated explicitly in Section~\ref{sec:limitations}.
 \end{abstract}
 
 % ============================================================
 \section{Introduction}
 \label{sec:intro}
 
-% ── HOOK (write this yourself — 2–3 sentences) ──────────────────────────────
-% The hook should answer: why does monetary transmission under a currency board
-% matter, and what makes HK the right case? Options:
-%   - "Currency boards are supposed to import credibility, not shocks..."
-%   - "When a central bank surrenders its exchange rate, how does monetary
-%     policy reach the real economy?"
-%   - Start with the empirical puzzle: HIBOR tracks FFR almost one-for-one
-%     (coefficient 0.53, p=0.000), yet HK has no independent monetary policy.
-%     Who is transmitting these rate changes, and to where?
-% [WRITE HOOK HERE — 2 sentences max]
-
 A currency board eliminates the exchange rate as a shock absorber and hands
-the domestic interest rate to the anchor country. Under Hong Kong's Linked
-Exchange Rate System (LERS), the three-month interbank offered rate (HIBOR)
-has tracked the US federal funds rate almost one-for-one since the peg's
-establishment in 1983, absorbing US monetary cycles that Hong Kong's own
-authorities cannot offset. What remains is the question this paper addresses:
-through which domestic channels do those imported interest rate movements
-transmit to output, and with what speed?
+domestic interest rate setting to the anchor country. Under Hong Kong's Linked
+Exchange Rate System, the three-month interbank offered rate (HIBOR) has tracked
+the US federal funds rate since the peg's establishment in 1983, absorbing US
+monetary cycles that Hong Kong's own authorities cannot offset. When the Federal
+Reserve tightens, Hong Kong's interbank rate rises in step; yet Hong Kong cannot
+lower rates to cushion the domestic impact. What remains is the question this
+paper addresses: through which domestic channels do imported interest rate
+movements transmit to output, and with what speed and persistence?
 
-We answer this question using a Bayesian VAR estimated on 113 quarterly
-observations from 1998~Q1 to 2026~Q1. The model includes six endogenous
-variables---the three-month HIBOR, exports to China, property prices, GDP
-growth, CPI inflation, and the unemployment rate---with the US federal funds
-rate and China's GDP growth entering as exogenous forcing variables. The
-Minnesota prior regularises inference over a sample that spans the Asian
-financial crisis, the global financial crisis, and the COVID-19 pandemic.
+We answer this question using a Bayesian VAR of order four (BVAR(4)) estimated on
+113 quarterly observations from 1998~Q1 to 2026~Q1. The model includes six
+endogenous variables---the three-month HIBOR, exports to China, property prices,
+GDP growth, CPI inflation, and the unemployment rate---with the US federal funds
+rate and China's GDP growth entering as strictly exogenous forcing variables,
+following the block-exogenous structure of \citet{CushmanZha1997}. Structural
+shocks are identified via a Cholesky decomposition whose ordering reflects
+institutional timing under the currency board. The Minnesota prior regularises
+inference over a sample that spans the Asian financial crisis, the global
+financial crisis, and the COVID-19 pandemic.
 
-The main results are as follows. First, a one standard deviation tightening in
-HIBOR depresses Hong Kong property prices significantly within the same quarter
-but the property price response is not persistent beyond one quarter. Second,
-despite the short-lived property price impact, the HIBOR--GDP link is
-significant at horizons one through four, suggesting a direct credit and
-mortgage channel that sustains monetary transmission after the property price
-effect fades. Third, forecast error variance decomposition (FEVD) attributes
-20.6\% of GDP variance to property price shocks at an eight-quarter horizon---
-more than the direct contribution of trade shocks (16.5\%) or HIBOR shocks
-(8.6\%). Fourth, a China GDP growth shock raises exports within the quarter and
-propagates to GDP at horizons one and two.
+The main results are as follows. First, the HIBOR own-share in its own forecast
+error variance is 95\% at an eight-quarter horizon, confirming near-mechanical
+pass-through of US rate conditions consistent with LERS arbitrage. Second, a
+HIBOR tightening depresses property prices significantly within one quarter
+(90\% credibility interval: $[-0.967, -0.316]$) but the response crosses zero
+by $h = 2$. Third, despite this short-lived property response, property price
+shocks are the dominant source of GDP variance at the eight-quarter horizon
+(20.7\%), larger than the direct trade channel (exports: 16.4\%) or direct
+monetary channel (HIBOR: 8.4\%). Fourth, the direct HIBOR--GDP link is
+significant at horizons one through four (90\% CI at $h = 4$: $[-0.296, -0.067]$),
+indicating a credit and mortgage sub-channel that sustains output contraction
+beyond the asset price effect. Fifth, exports to China explain 16.4\% of GDP
+forecast error variance in the BVAR and are significant at $h = 1$ and $h = 2$;
+in recursive LP, this channel weakens after conditioning on current China GDP
+growth.
 
-% ── CONTRIBUTION PARAGRAPH ──────────────────────────────────────────────────
-% Explain what is new: the speed asymmetry finding is the contribution.
-% Frame it against what prior papers have done (typically: "does transmission
-% survive the peg?" This paper: "it does, AND here is the within-channel
-% architecture — fast property sub-channel + slow direct sub-channel").
-% [WRITE CONTRIBUTION HERE — 3–4 sentences positioning against prior work]
+This is not a clean US monetary policy shock paper. \texttt{us\_ffr} is an
+external monetary-conditions variable, not a Romer-Romer surprise. This is not an
+LP identification paper. LP is a robustness check for direct-projection timing
+under the same recursive/BVARX information set.
 
-The paper makes two contributions. First, we document a speed asymmetry within
-the monetary transmission channel that has not been systematically quantified
-for currency board economies: the property price sub-channel is fast but
-short-lived, while the direct credit and investment sub-channel is slower but
-more persistent. Second, combining Bayesian estimation with local projections
-provides a robustness architecture that is explicitly valid under the residual
-heteroskedasticity and structural breaks generated by a 28-year sample spanning
-multiple tail-risk episodes.
+The paper makes two contributions. First, it documents a speed asymmetry within
+monetary transmission under a currency board: the property sub-channel is fast
+(significant at $h = 1$--$2$) but short-lived, while the direct credit sub-channel
+is slower but more persistent (significant through $h = 4$). \citet{Mishkin1996}
+notes that interest rate and asset price channels operate on different timescales;
+our FEVD and IRF evidence quantifies this asymmetry under institutional conditions
+that validate the first step of the Cholesky ordering. Second, the paper
+establishes that domestic property amplification, not imported rate movements
+directly, is the principal source of GDP forecast error variance in this currency
+board economy.
 
 The remainder of the paper is organised as follows. Section~\ref{sec:background}
-reviews the LERS mechanism and prior evidence on monetary and trade
-transmission. Section~\ref{sec:data} describes the data and model.
-Section~\ref{sec:results} presents the main results. Section~\ref{sec:robustness}
-reports robustness checks. Section~\ref{sec:conclusion} concludes.
+describes the institutional context. Section~\ref{sec:data} describes the data.
+Section~\ref{sec:strategy} presents the empirical strategy. Section~\ref{sec:results}
+presents the main results. Section~\ref{sec:robustness} reports robustness checks.
+Section~\ref{sec:limitations} states limitations. Section~\ref{sec:conclusion} concludes.
 
 % ============================================================
-\section{Background and Literature}
+\section{Institutional Background and Channels}
 \label{sec:background}
 
-\subsection{The Linked Exchange Rate System}
-\label{sec:lers}
+Hong Kong has operated a currency board since October 1983, with the Hong Kong
+dollar fixed at HKD~7.80 per US dollar. The LERS self-corrects through interest
+rate arbitrage: capital inflows expand the monetary base and compress HIBOR toward
+the federal funds rate; outflows drain the base and push HIBOR upward. The
+mechanism is automatic and operates within days, so over quarterly horizons HIBOR
+is mechanically tied to the federal funds rate. Hong Kong cannot engineer a real
+depreciation to offset a US tightening cycle; what remain are the domestic
+transmission channels.
 
-% ── WHAT TO WRITE HERE ──────────────────────────────────────────────────────
-% Explain the currency board mechanics at an economics level, not a description
-% level. The reader needs to understand WHY this creates the identification
-% opportunity. Key points:
-%
-% 1. HKD pegged at 7.80/USD since Oct 1983. Currency board: HKD in circulation
-%    must be 100% backed by USD in the exchange fund. No fractional reserve.
-%
-% 2. Arbitrage mechanism: if HIBOR > FFR, capital flows in, HKD appreciates
-%    toward peg, HKMA sells HKD → monetary base expands → HIBOR falls back.
-%    Speed: within days, effectively within a quarter.
-%
-% 3. Consequence for identification: HIBOR is determined by FFR + peg credibility
-%    premium (near zero post-1998). Within the quarter, HIBOR cannot respond to
-%    domestic output or property conditions. This is the Cholesky ordering
-%    justification.
-%
-% 4. What LERS removes: exchange rate channel, monetary policy autonomy.
-%    What remains: credit channel, collateral channel (property), expectations.
-%
-% SUGGESTED READING: HKMA Annual Reports (mechanism description); Greenwood (1983)
-% for original design; Genberg & Pauwels (2005) for empirical assessment.
+Three domestic channels are relevant. The \emph{credit and property channel}:
+HIBOR increases raise mortgage costs and compress property valuations, tightening
+collateral constraints and investment \citep{BernankeBlinder1992,GoodhartHofmann2008}.
+In Hong Kong, residential property is the primary household asset and dominant
+loan collateral, concentrating this channel in a single highly liquid asset class.
+The \emph{direct credit channel}: HIBOR also raises business financing costs
+directly, sustained beyond any property price adjustment through contract
+renegotiation and new loan origination. The \emph{trade channel}: Hong Kong's
+economy is deeply integrated with mainland China, which by the mid-2010s accounted
+for over half of total re-exports. China's growth cycle drives export demand
+independently of the monetary channel.
 
-Hong Kong has operated a currency board arrangement since October 1983, with the
-Hong Kong dollar fixed at HKD~7.80 per US dollar. Under this arrangement, each
-unit of Hong Kong dollar monetary base must be backed by an equivalent US dollar
-holding in the Exchange Fund; the currency board cannot create or destroy base
-money independently of US dollar flows. The mechanism is self-reinforcing through
-interest rate arbitrage: when HIBOR exceeds the US federal funds rate, capital
-flows into Hong Kong, the Exchange Fund acquires US dollars and issues Hong Kong
-dollar base money, and the resulting monetary expansion compresses HIBOR back
-toward its US counterpart within days. Our VARX specification confirms this
-mechanism: the contemporaneous coefficient of `us\_ffr` on HIBOR is $+0.53$
-($p < 0.001$), and HIBOR accounts for 95\% of its own forecast error variance
-at an eight-quarter horizon, consistent with a near-deterministic peg.
-
-The peg eliminates two standard channels of monetary transmission. The exchange
-rate channel is closed by definition: Hong Kong cannot engineer a real
-depreciation to export its way out of a US tightening cycle. Monetary policy
-autonomy is similarly absent: the HKMA cannot lower rates when the US raises
-them. What remains are the domestic channels through which imported rate changes
-reach real activity---principally the credit channel and the property collateral
-channel.
-
-\subsection{Monetary and Trade Transmission: Prior Evidence}
-\label{sec:lit}
-
-% ── WHAT TO WRITE HERE ──────────────────────────────────────────────────────
-% This subsection positions the paper against prior empirical work.
-% Structure it as three clusters:
-%
-% CLUSTER 1: Small open economy VAR methodology (your methodological ancestors)
-%   - Cushman & Zha (1997): introduced the block-exogenous structure for Canada.
-%     Key insight: domestic variables cannot contemporaneously affect foreign
-%     block. Zha (1999) formalises block recursion.
-%   - What you take from them: the block structure (us_ffr, china_gdp as exog)
-%     and the Cholesky ordering logic.
-%
-% CLUSTER 2: Property market as transmission channel
-%   - Bernanke & Gertler (1989): net worth / collateral channel. Interest rate
-%     rise → property price fall → collateral value drops → credit tightens →
-%     investment falls. This is the mechanism behind HIBOR→property→GDP.
-%   - [Look for HK-specific property market papers if any exist]
-%
-% CLUSTER 3: China-HK trade linkage
-%   - China's WTO accession 2001, growing dominance as HK export destination.
-%     By 2010s, mainland China accounts for >50% of HK re-exports.
-%   - [Any empirical papers on China→HK transmission you can cite]
-%
-% WHAT IS NEW IN YOUR PAPER vs this literature:
-%   Prior papers typically ask: "does monetary transmission survive the peg?"
-%   Your paper asks: "what is the within-channel architecture?" and finds the
-%   speed asymmetry (fast property, slow direct) that prior papers aggregated.
-%
-% SUGGESTED READING: Cushman & Zha (1997); Bernanke & Gertler (1989);
-%   Zha (1999); any HKMA research papers on monetary transmission.
-% [WRITE 3–4 PARAGRAPHS — one per cluster, one on your contribution vs this lit]
-
-The empirical strategy follows \citet{CushmanZha1997}, who proposed treating
-foreign variables as a block-exogenous forcing process in small open economy
-VARs. In their application to Canada, domestic variables are ordered after the
-foreign block in a Cholesky decomposition, preventing the domestic economy from
-contemporaneously affecting US monetary policy. \citet{Zha1999} extends this to
-a formal block-recursive structure. We adapt this framework to Hong Kong, with
-the LERS mechanism providing an unusually sharp institutional justification for
-the contemporaneous restriction on the interbank rate.
-
-% [EXPAND: property collateral channel literature]
-The property price channel draws on \citet{BernankeGertler1989}, who formalise
-how asset price fluctuations amplify monetary shocks through the net worth of
-borrowers. In Hong Kong, where residential property serves simultaneously as
-household wealth and collateral for mortgage and business lending, this channel
-is plausibly stronger than in economies where financial assets are more
-diversified. In Hong Kong, owner-occupied residential property accounts for a
-dominant share of household balance sheets, and lending conditions are
-routinely tied to property valuations; the collateral channel is therefore
-a primary, rather than a secondary, mechanism of monetary transmission.
-
-The trade linkage between mainland China and Hong Kong intensified sharply
-following China's WTO accession in 2001. By the mid-2010s, mainland China
-accounted for more than half of Hong Kong's total re-exports, making the
-China growth cycle the principal demand-side driver of export fluctuations.
-Empirically, the contemporaneous coefficient of China GDP growth on Hong Kong
-exports is $+0.806$ ($p = 0.016$) in our VARX, consistent with this trade
-dependence. Prior studies of small open economies typically estimate China
-exposure through trade weights or input-output linkages; our contribution is
-to embed this external demand channel jointly with the monetary channel in a
-single structural system, allowing direct comparison of their relative
-importance for output variance.
+The block-exogenous structure follows \citet{CushmanZha1997}: the small open
+economy cannot contemporaneously influence the foreign interest rate or China's
+output, and Hong Kong's monetary base is too small to perturb US monetary
+conditions. Under LERS, this is an institutional constraint, not merely a
+plausibility argument.
 
 % ============================================================
-\section{Data and Methods}
+\section{Data}
 \label{sec:data}
 
-\subsection{Data}
-\label{sec:data_sources}
-
-The dataset covers 113 quarterly observations from 1998~Q1 to 2026~Q1.
-The start date is regime-justified rather than instrument-constrained: the
-1997 handover and the Asian financial crisis created a structural break in
-virtually every HK macroeconomic series, and extending the sample backward
-would mix pre- and post-LERS credibility regimes (see Section~\ref{sec:sample}).
-
-Table~\ref{tab:variables} summarises the eight variables.
-The endogenous block comprises the variables the model treats as jointly
-determined within the Hong Kong economy; the exogenous block contains variables
-that Hong Kong cannot influence.
+The dataset covers 113 quarterly observations from 1998~Q1 to 2026~Q1. The start
+date is regime-justified: the 1997 handover and Asian financial crisis constitute
+a structural break in LERS credibility and Hong Kong--China trade integration.
+The three-month HIBOR panel is continuous across the handover (the same HKAB
+survey panel has operated since the mid-1980s), so no instrument break forces the
+1998 start; the decision is economic. Table~\ref{tab:variables} summarises the
+eight variables.
 
 \begin{table}[htbp]
 \centering
 \caption{Variable Dictionary}
 \label{tab:variables}
 \small
-\begin{tabular}{llllp{4.5cm}}
+\begin{tabular}{lllp{2cm}p{4.5cm}}
 \toprule
 Variable & Role & Form & Units & Source \\
 \midrule
-\texttt{us\_ffr}               & Exogenous & Level   & \% p.a.    & FRED FEDFUNDS, monthly $\to$ quarterly mean \\
-\texttt{china\_gdp}            & Exogenous & YoY \%  & \%         & OECD QNA \texttt{CHN.B1\_GE.GPSA.Q} \\
+\texttt{us\_ffr}               & Exogenous  & Level   & \% p.a. & FRED FEDFUNDS, monthly $\to$ quarterly mean \\
+\texttt{china\_gdp}            & Exogenous  & YoY \%  & \%      & OECD QNA \texttt{CHN.B1\_GE.GPSA.Q} \\
 \addlinespace
-\texttt{hibor\_3m}             & Endogenous & Level  & \% p.a.    & HKMA hibor.fixing, monthly $\to$ quarterly mean \\
-\texttt{hk\_exports\_china\_yoy} & Endogenous & YoY \% & \%        & C\&SD table 410-50013, nominal HKD \\
-\texttt{hk\_property\_price\_qoq} & Endogenous & QoQ \% & \%      & RVD All Classes index, quarterly mean then differenced \\
-\texttt{gdp\_growth}           & Endogenous & YoY \%  & \%         & C\&SD table 310-30001, real chain-linked \\
-\texttt{cpi\_inflation}        & Endogenous & YoY \%  & \%         & C\&SD table 510-60001, Composite CPI \\
-\texttt{unemployment}          & Endogenous & Level   & \%         & C\&SD table 210-06101, seasonally adjusted M3M \\
+\texttt{hibor\_3m}             & Endogenous & Level   & \% p.a. & HKMA hibor.fixing, monthly $\to$ quarterly mean \\
+\texttt{hk\_exports\_china\_yoy} & Endogenous & YoY \% & \%     & C\&SD table 410-50013, nominal HKD \\
+\texttt{hk\_property\_price\_qoq} & Endogenous & QoQ \% & \%   & RVD All Classes index, quarterly differenced \\
+\texttt{gdp\_growth}           & Endogenous & YoY \%  & \%      & C\&SD table 310-30001, real chain-linked \\
+\texttt{cpi\_inflation}        & Endogenous & YoY \%  & \%      & C\&SD table 510-60001, Composite CPI \\
+\texttt{unemployment}          & Endogenous & Level   & \%      & C\&SD table 210-06101, seasonally adjusted M3M \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\noindent\textit{Notes on variable transforms.}
-Property prices are expressed as quarter-on-quarter percentage changes:
-the level index is integrated of order one (ADF $p = 0.82$), while the
-QoQ change is stationary (ADF $p < 0.001$). Exports and GDP use the
-year-on-year form standard in official Hong Kong releases. HIBOR and
-unemployment enter in levels, as both are mean-reverting over the sample
-under the peg and through normal labour market adjustment respectively.
+Property prices enter as quarter-on-quarter percentage changes: the level index
+is I(1) (ADF $p = 0.82$) while the QoQ change is stationary (ADF $p < 0.001$).
+HIBOR and unemployment enter in levels, as both are mean-reverting under the peg
+and through normal labour market adjustment respectively. Unemployment, CPI, and
+the property price level are confirmed I(1); ADF and KPSS tests on the remaining
+endogenous variables support stationarity or near-stationarity. Johansen trace and
+max-eigenvalue tests on the endogenous I(1) block find rank zero at the 95\% level,
+so no cointegrating relationship exists and a VECM is not warranted
+\citep{SimsStockWatson1990}.
 
-Three data limitations are disclosed upfront. First, exports to China are
-measured in nominal Hong Kong dollars; no quarterly export price deflator
-is available for the full sample, so the series captures both volume and
-price effects. Second, \texttt{us\_ffr} is a monetary-conditions proxy
-rather than a clean policy surprise; the model cannot separate anticipated
-from unanticipated rate changes. Third, the post-2010 China--Hong Kong
-financial integration channel (Stock Connect, mainland property buyers,
-mainland bank cross-holdings) is not directly modelled, as no suitable
-counterparty-level series extends back to 1998.
+Three data limitations are noted. First, exports are measured in nominal Hong Kong
+dollars; volume and price effects cannot be separated. Second, \texttt{us\_ffr}
+is a monetary-conditions proxy rather than a clean policy surprise. Third, the
+post-2010 China--Hong Kong financial integration channel is not directly modelled
+as no suitable quarterly series extends back to 1998.
 
-\subsection{Model Specification}
-\label{sec:model}
+% ============================================================
+\section{Empirical Strategy}
+\label{sec:strategy}
+
+\subsection{BVARX Specification}
 
 We estimate a Bayesian VAR of order four,
 \begin{equation}
-  \mathbf{y}_t = \mathbf{c} + \sum_{\ell=1}^{4} \mathbf{A}_\ell \mathbf{y}_{t-\ell}
-               + \mathbf{B}_0 \mathbf{z}_t + \boldsymbol{\varepsilon}_t,
+  \mathbf{y}_t = \mathbf{c} + \sum_{\ell=1}^{4} \mathbf{A}_\ell\, \mathbf{y}_{t-\ell}
+               + \mathbf{B}_0\, \mathbf{z}_t + \boldsymbol{\varepsilon}_t,
   \qquad \boldsymbol{\varepsilon}_t \sim \mathcal{N}(\mathbf{0}, \boldsymbol{\Sigma}),
 \label{eq:bvar}
 \end{equation}
-where $\mathbf{y}_t$ is the $6 \times 1$ vector of endogenous variables in the
-Cholesky ordering described in Section~\ref{sec:identification}, and
-$\mathbf{z}_t = (\texttt{us\_ffr}_t,\, \texttt{china\_gdp}_t)'$ is the exogenous block.
-The model has $k = 27$ parameters per equation and $T_{\mathrm{eff}} = 109$ observations
-after conditioning on four initial lags.
+where $\mathbf{y}_t$ is the $6 \times 1$ vector of endogenous variables and
+$\mathbf{z}_t = (\texttt{us\_ffr}_t,\, \texttt{china\_gdp}_t)'$ is the
+block-exogenous forcing vector. The model has $k = 27$ parameters per equation
+and $T_{\mathrm{eff}} = 109$ observations after conditioning on four initial lags.
 
-\textbf{Prior.}
-We use the Minnesota (Litterman) prior \citep{Litterman1986}. Lagged own
-values receive prior mean $\delta_i / \ell$ with harmonic decay rate $1/\ell^2$
-across lags; cross-variable lags are shrunk toward zero. The tightness
-parameter $\pi_1 = 0.085$ and the cross-variable weight $\pi_2 = 1.0$ are
-marginal-likelihood optimal, estimated jointly with the AR prior means $\delta_i$
-via the algorithm of \citet{GiannoneEtAl2015}. The optimal prior means range from
-$\delta = 0.418$ (property, fast-reverting asset price) to $\delta = 0.991$
-(unemployment, near-unit-root), calibrated to each series' integration order.
-The prior on the exogenous coefficients $\mathbf{B}_0$ is uninformative
-($\pi_4 = 100$), consistent with the peg making the contemporaneous FFR--HIBOR
-coefficient economically determinate rather than estimated from data.
-\citet{GiannoneEtAl2015} show this prior selection procedure avoids the
-overfitting that arises when lag length or shrinkage is chosen by in-sample
-criteria.
+\paragraph{Prior.}
+The Minnesota prior of \citet{Litterman1986} shrinks lagged own values toward
+a random walk with harmonic decay $1/\ell^2$ across lags, and shrinks
+cross-variable lags toward zero. The tightness parameter $\pi_1 = 0.085$
+and cross-variable weight $\pi_2 = 1.0$ are marginal-likelihood optimal,
+estimated jointly with the AR prior means $\delta_i$ via \citet{GiannoneEtAl2015}.
+The optimal prior means range from $\delta = 0.418$ (property prices) to
+$\delta = 0.991$ (unemployment), calibrated to each series' integration order.
+The prior on exogenous coefficients $\mathbf{B}_0$ is diffuse ($\pi_4 \approx 100$).
 
-\textbf{Exogenous lag structure.}
-Exogenous variables enter contemporaneously only, following
-\citet{CushmanZha1997}. For \texttt{us\_ffr}, this restriction is institutional:
-under LERS, the currency board arbitrages HIBOR to the federal funds rate
-within the quarter, so lagged FFR values are spanned by current HIBOR and its
-own lags in the endogenous block. For \texttt{china\_gdp}, the year-on-year
+\paragraph{Posterior and inference.}
+With $\boldsymbol{\Sigma}$ fixed at AR residual variances, the Minnesota prior
+yields a closed-form Normal posterior; all draws are independent and identically
+distributed. Credibility bands are 90\% posterior intervals from 3,000 independent
+draws. No Markov chain Monte Carlo simulation is employed: the analytical posterior
+makes trace-plot and effective-sample-size diagnostics meaningless here. At
+$h = 1$, the Cholesky impact matrix is deterministic given $\boldsymbol{\Sigma}$,
+so posterior bands have zero width; $h = 2$ is the first horizon with genuine
+posterior uncertainty.
+
+\paragraph{Exogenous lag structure.}
+Exogenous variables enter contemporaneously only (VARX(4,0)) following
+\citet{CushmanZha1997}. For \texttt{us\_ffr}, the currency board arbitrages HIBOR
+to the federal funds rate within the quarter, so lagged FFR values are spanned by
+current HIBOR and its own lags. For \texttt{china\_gdp}, the year-on-year
 construction shares three of four underlying quarters between adjacent
-observations, precluding identification of a separate trade-lag effect without
-near-collinearity.\footnote{We do not include \texttt{china\_gdp}$_{t-1}$; identification of a trade-lag effect requires quarter-on-quarter China GDP data not available for the full sample.} Robustness to including \texttt{us\_ffr}$_{t-1}$ is reported in Section~\ref{sec:exog_lag}.
+observations, generating near-collinearity with the lagged value.\footnote{The
+75\% semantic overlap between adjacent year-on-year China GDP observations means
+including \texttt{china\_gdp}$_{t-1}$ adds a near-duplicate regressor.
+Identification of a genuine trade-lag effect would require quarter-on-quarter
+China GDP data, which are unavailable for the full sample.} Adding
+\texttt{us\_ffr}$_{t-1}$ does not remove Ljung-Box failures in the GDP and CPI
+equations; residual autocorrelation reflects structural instability rather than
+an omitted lag. This is consistent with \citet{CushmanZha1997}'s block-exogeneity
+framework and confirms that $q = 0$ is the appropriate exogenous lag order.
 
-\textbf{Posterior and inference.}
-With $\boldsymbol{\Sigma}$ fixed at the AR residual variances, the Minnesota
-prior yields a closed-form Normal posterior; all draws are independent
-\citep[see][]{Litterman1986}. Credibility bands are 90\% posterior intervals
-from 3,000 independent draws. At horizon $h = 1$, the Cholesky impact matrix is
-deterministic given $\boldsymbol{\Sigma}$, so posterior bands have zero width;
-$h = 2$ is the first horizon with genuine posterior uncertainty. All four
-out-of-sample RMSE comparisons at $h \in \{1, 2, 4\}$ favour the BVAR over
-a VARX(1) baseline across all six equations (18/18 cells). Forecast
-evaluations are conducted conditionally: consistent with the small open
-economy assumption, the model is provided with the realised paths of the
-strictly exogenous variables (\texttt{us\_ffr} and \texttt{china\_gdp}) to
-isolate the accuracy of the domestic transmission mechanism.
-
-\subsection{Sample Selection}
-\label{sec:sample}
-
-The sample begins in 1998~Q1. The choice is regime-justified, not
-instrument-constrained. The 1997 handover and the Asian financial crisis
-together constitute a structural break in the LERS credibility premium,
-property market dynamics, and the composition of Hong Kong's trade with
-mainland China. Extending the sample before 1997 would incorporate a period
-when the peg's institutional foundations were materially different.
-The three-month HIBOR panel is continuous across the 1997 handover
-(same HKAB survey panel since the mid-1980s), so no instrument break
-forces the 1998 start; the decision is economic, not technical.
-
-\subsection{Identification}
+\subsection{Recursive Identification}
 \label{sec:identification}
 
-We identify structural shocks via a recursive (Cholesky) decomposition. The
-ordering---HIBOR, exports, property, GDP, CPI, unemployment---reflects
-institutional timing assumptions about contemporaneous responses within a
-quarter. HIBOR is ordered first: under the Linked Exchange Rate System (LERS)
-currency board, the three-month interbank rate is mechanically tied to the US
-federal funds rate and cannot respond to domestic output or property conditions
-within the same quarter. Exports to China are ordered second: Hong Kong's
-external trade flows are driven by demand originating in mainland China and are
-contemporaneously exogenous to domestic price and output conditions. Property
-prices are ordered third: financial asset prices adjust within the quarter to
-changes in credit costs and collateral valuations \citep{BernankeGertler1989},
-but aggregate output responds with a lag through investment, construction, and
-household wealth effects. GDP is ordered fourth, absorbing within-quarter
-responses to all three preceding variables. CPI and unemployment are ordered
-last, reflecting standard price and labour market sluggishness. This ordering
-does not require the full peg mechanism---only that HIBOR moves faster than
-property, property faster than GDP, within a quarter. We show in
-Section~\ref{sec:lp} that local projection estimates, which do not impose this
-ordering, produce qualitatively consistent results at the key horizons.
+Structural shocks are identified via a recursive (Cholesky) decomposition with
+ordering: HIBOR, exports, property, GDP, CPI, unemployment. HIBOR is ordered
+first: under LERS, the interbank rate is mechanically determined by the federal
+funds rate and cannot respond to domestic output or property conditions within
+the same quarter. This is an institutional constraint, not a maintained
+statistical assumption. Exports are ordered second: driven by mainland China
+demand, they are contemporaneously exogenous to domestic monetary and price
+conditions. Property is ordered third, ahead of GDP: under LERS, property prices are
+the primary within-quarter transmission vehicle for monetary conditions, and
+asset price adjustment precedes measured GDP revision in quarterly national
+accounts.\footnote{This ordering is load-bearing for the 20.7\% FEVD share.
+A reverse ordering — GDP before property — is the standard diagnostic robustness
+check and is left for future work.} CPI and unemployment
+are ordered last, reflecting standard price and labour market sluggishness.
+
+FEVD estimates use recursive identification by construction; the local projections
+check whether the same domestic channel timing appears under direct projections
+with HAC inference and the same BVARX information set.
+
+\subsection{Local Projections}
+\label{sec:lp_method}
+
+We estimate local projections \citep{Jorda2005} for each of the four domestic
+channels as a timing robustness check \citep{RameyZubairy2018}. The LP regression
+at horizon $h$ is
+\begin{equation}
+  y_{t+h} = \alpha_h + \beta_h\, s_t
+            + \boldsymbol{\gamma}_h' \mathbf{x}_t
+            + \varepsilon_{t+h},
+\label{eq:lp}
+\end{equation}
+where $s_t$ is the shock variable and $\mathbf{x}_t$ includes (i) four lags of
+all endogenous variables, (ii) current-period values of the exogenous block
+(\texttt{us\_ffr}$_t$, \texttt{china\_gdp}$_t$), and (iii) contemporaneous values
+of all endogenous variables ordered before $s_t$ in the Cholesky decomposition.
+Including controls in (iii) imposes the same recursive identifying restrictions
+as the BVAR, so $\hat{\beta}_h$ has the same structural interpretation at each
+horizon. The LP does not remove recursive identification; it provides a robustness
+check on domestic channel timing under direct estimation with HAC-robust inference.
+Newey-West standard errors with bandwidth $h + 1$ are used throughout.
 
 % ============================================================
 \section{Results}
 \label{sec:results}
 
-\subsection{Forecast Error Variance Decomposition}
-\label{sec:fevd}
+\subsection{External Forcing Check}
 
-Table~\ref{tab:fevd} reports the FEVD of GDP growth at an eight-quarter horizon.
-Property price shocks account for 20.6\% of GDP variance, the largest share
-among the external channels. The direct trade channel (exports shocks) accounts
-for 16.5\%, and the direct monetary channel (HIBOR shocks) for 8.6\%. The
-remaining 54.3\% is attributable to GDP's own dynamics (51.2\%), CPI, and
-unemployment shocks (jointly $< 3\%$). This large own-shock share reflects
-idiosyncratic domestic demand variation, fiscal policy, and factors not
-captured within the six-variable system. China GDP growth enters as a strictly
-exogenous regressor with an identified contemporaneous coefficient
-($\hat\beta = +0.806$, $p = 0.016$) but does not receive a structural FEVD
-share by construction; its contribution to GDP variance is partially captured
-through the exports innovation and partially absorbed into the GDP own-shock.
+The HIBOR own-share in its own forecast error variance is 95\% at an eight-quarter
+horizon. This reflects near-mechanical pass-through of US monetary conditions
+under the currency board: within any quarter, HIBOR is driven by \texttt{us\_ffr}
+and peg credibility, not by domestic output or property conditions. Exogenous
+dynamic multipliers---recovered from the block-exogenous impulse response
+object---show that a one percentage point increase in the federal funds rate raises
+Hong Kong GDP by $+0.225$ pp at $h = 1$ (US demand correlation) before turning
+negative at $h = 4$ ($-0.199$ pp) as monetary tightening propagates. A one
+percentage point increase in China GDP growth raises HK GDP by $+0.216$ pp at
+$h = 1$ and $+0.128$ pp at $h = 2$. The positive FFR--GDP sign at $h = 1$ is a
+standard open-economy result: contemporaneous US demand conditions dominate
+within-quarter output before the tightening effect propagates \citep{CushmanZha1997}.
+These end-to-end multipliers complement the FEVD; they are not structural
+decompositions.
 
-\begin{table}[htbp]
+\begin{figure}[htbp]
 \centering
-\caption{Forecast Error Variance Decomposition: GDP Growth at $h = 8$}
-\label{tab:fevd}
-\begin{tabular}{lc}
-\toprule
-Shock source & Share of GDP variance (\%) \\
-\midrule
-Property prices (hk\_property\_price\_qoq) & 20.6 \\
-Exports to China (hk\_exports\_china\_yoy) & 16.5 \\
-HIBOR (hibor\_3m)                          &  8.6 \\
-GDP own                                    & 54.3 \\
-\midrule
-Total                                      & 100.0 \\
-\bottomrule
-\end{tabular}
-\begin{minipage}{\linewidth}
-\vspace{4pt}
-\small\textit{Notes:} BVAR(4) Minnesota prior, HIBOR-first Cholesky ordering.
-Entries for CPI and unemployment shocks omitted; their combined contribution is
-$< 1\%$. HIBOR's own-share in its own variance is 95\%, reflecting near-mechanical
-peg dynamics; the US federal funds rate contribution is not captured here as it
-enters the endogenous FEVD through HIBOR.
-\end{minipage}
-\end{table}
+\includegraphics[width=0.85\textwidth]{../output/readme_hibor_ffr.png}
+\caption{HIBOR and US Federal Funds Rate, 1998Q1--2026Q1}
+\label{fig:hibor-ffr-timeseries}
+\end{figure}
 
-The property--GDP relationship warrants emphasis. Despite the property price
-impulse response being short-lived (significant at $h = 1$ only, see below),
-property price shocks account for the \emph{largest} share of GDP variance
-among external channels. This reflects the amplification dynamics documented
-by \citet{BernankeGertler1989}: a property price decline compresses net worth
-and collateral values, tightening credit conditions and reducing investment
-across several subsequent quarters even after the initial price shock has faded.
-The FEVD thus captures the full propagation of property shocks through the
-credit and investment chain, not merely the contemporaneous impact.
-
-\subsection{Impulse Responses}
-\label{sec:irf}
+\subsection{Main Impulse Responses}
 
 Table~\ref{tab:irf} reports the four key transmission channels at horizons
-$h \in \{1, 2, 4\}$ quarters. Credibility bands are 90\% posterior intervals.
+$h \in \{1, 2, 4\}$ quarters. Figure~\ref{fig:irf_canonical} presents the full
+$6 \times 6$ impulse response matrix.
 
 \begin{table}[htbp]
 \centering
@@ -445,291 +329,378 @@ $h \in \{1, 2, 4\}$ quarters. Credibility bands are 90\% posterior intervals.
 Channel & $h$ & Lower & Upper & Significant? \\
 \midrule
 \multirow{3}{*}{HIBOR $\to$ Property}
-  & 1 & $-$0.992 & $-$0.339 & Yes \\
-  & 2 & $-$0.497 & $+$0.103 & No  \\
-  & 4 & $-$0.205 & $+$0.073 & No  \\
+  & 1 & $-$0.967 & $-$0.316 & Yes \\
+  & 2 & $-$0.537 & $+$0.066 & No  \\
+  & 4 & $-$0.229 & $+$0.076 & No  \\
 \addlinespace
-\multirow{3}{*}{Exports $\to$ GDP}
-  & 1 & $+$0.262 & $+$0.528 & Yes \\
-  & 2 & $+$0.059 & $+$0.375 & Yes \\
-  & 4 & $-$0.191 & $+$0.118 & No  \\
-\addlinespace
-\multirow{3}{*}{HIBOR $\to$ GDP}
-  & 1 & $-$0.421 & $-$0.071 & Yes \\
-  & 2 & $-$0.494 & $-$0.138 & Yes \\
-  & 4 & $-$0.292 & $-$0.063 & Yes \\
+\multirow{3}{*}{HIBOR $\to$ GDP (direct)}
+  & 1 & $-$0.408 & $-$0.057 & Yes \\
+  & 2 & $-$0.493 & $-$0.130 & Yes \\
+  & 4 & $-$0.296 & $-$0.067 & Yes \\
 \addlinespace
 \multirow{3}{*}{Property $\to$ GDP}
-  & 1 & $+$0.331 & $+$0.625 & Yes \\
-  & 2 & $+$0.239 & $+$0.566 & Yes \\
-  & 4 & $-$0.064 & $+$0.200 & No  \\
+  & 1 & $+$0.330 & $+$0.634 & Yes \\
+  & 2 & $+$0.247 & $+$0.580 & Yes \\
+  & 4 & --- & --- & No  \\
+\addlinespace
+\multirow{3}{*}{Exports $\to$ GDP}
+  & 1 & $+$0.266 & $+$0.540 & Yes \\
+  & 2 & $+$0.060 & $+$0.375 & Yes \\
+  & 4 & $-$0.188 & $+$0.121 & No  \\
+\addlinespace
+\multirow{3}{*}{GDP $\to$ CPI}
+  & 1 & $+$0.076 & $+$0.174 & Yes \\
+  & 2 & $+$0.104 & $+$0.231 & Yes \\
+  & 4 & $+$0.117 & $+$0.264 & Yes \\
 \bottomrule
 \end{tabular}
 \begin{minipage}{\linewidth}
 \vspace{4pt}
-\small\textit{Notes:} BVAR(4), Minnesota prior. Responses are to a one standard
-deviation structural shock identified by Cholesky decomposition. $h = 1$ bands
-have zero width by construction (see Section~\ref{sec:model}); the table reports
-the deterministic Cholesky impact.
+\small\textit{Notes:} BVAR(4), Minnesota prior. Responses to a one standard
+deviation structural shock identified by Cholesky decomposition. At $h = 1$ the
+Cholesky impact matrix is deterministic given fixed $\boldsymbol{\Sigma}$; the
+posterior band degenerates to a point and significance refers to the sign of that
+point response. At $h = 4$ for Property $\to$ GDP, the band crosses zero; point
+estimate and bound values are omitted. Significance means the 90\% credibility
+interval excludes zero.
 \end{minipage}
 \end{table}
 
-\textbf{Channel~1: US monetary policy to Hong Kong GDP.}
-A HIBOR tightening reduces property prices significantly within the same quarter
-(90\% CI: $[-0.99, -0.34]$) but the property price response is not significant
-beyond $h = 1$. The direct HIBOR--GDP link, by contrast, is significant at
-$h = 1$, $h = 2$, and $h = 4$, generating a more sustained output contraction
-than the property price dynamics alone would imply. We interpret this as
-reflecting two sub-channels with different speeds: a \emph{fast property
-sub-channel} (HIBOR compresses asset values within the quarter, amplified by
-the collateral mechanism into GDP at $h = 1$ and $h = 2$) and a \emph{slow
-direct sub-channel} (HIBOR affects GDP through credit costs, mortgage rates,
-and investment adjustment, persisting through $h = 4$ after the property price
-effect has faded). The FEVD evidence reinforces this interpretation: property
-shocks account for 20.6\% of GDP variance at $h = 8$ even though their
-impulse response is significant for only one quarter.
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../output/phase9a_canonical_irf.png}
+\caption{Canonical BVAR(4) Impulse Response Functions, 90\% Credibility Bands}
+\label{fig:irf_canonical}
+\end{figure}
 
-\textbf{Channel~2: China growth to Hong Kong GDP.}
-A positive China GDP growth shock raises Hong Kong exports and propagates to GDP
-at $h = 1$ and $h = 2$ before fading by $h = 4$. The persistence profile of
-the trade channel is broadly similar to that of the direct monetary channel,
-but the FEVD share is larger (16.5\% vs. 8.6\% for HIBOR direct), reflecting
-the greater importance of demand fluctuations from mainland China relative to
-interest rate variation in explaining aggregate output dynamics over a
-multi-quarter horizon.
+\paragraph{Channel 1: monetary channel.}
+A HIBOR tightening depresses property prices significantly within one quarter
+(90\% CI: $[-0.967, -0.316]$), consistent with the collateral channel described
+by \citet{GoodhartHofmann2008}. The property price response crosses zero at
+$h = 2$ and is not significant beyond the first quarter. This short-lived property
+response coexists with a direct HIBOR--GDP link significant at $h = 1$, $h = 2$,
+and $h = 4$. Together with the property--GDP IRF (significant at $h = 1$ and
+$h = 2$), this establishes the speed asymmetry: a \emph{fast property sub-channel}
+(significant at $h = 1$--$2$) and a \emph{slow direct sub-channel} (persistent
+through $h = 4$ via credit costs and mortgage rates). The BVAR significance at
+$h = 4$ for the direct channel should be treated with caution given that the
+recursive LP does not confirm it at that horizon.
 
-% [INSERT FIGURE: phase9a_canonical_irf.png and phase10a_gdp_channels.png]
-% \begin{figure}[htbp]
-% \centering
-% \includegraphics[width=\textwidth]{../output/phase9a_canonical_irf.png}
-% \caption{Canonical BVAR(4) Impulse Response Functions}
-% \label{fig:irf_canonical}
-% \end{figure}
+\paragraph{Channel 2: trade channel.}
+A positive China GDP growth shock raises exports and transmits to Hong Kong GDP at
+$h = 1$ (90\% CI: $[+0.266, +0.540]$) and $h = 2$ (90\% CI: $[+0.060, +0.375]$)
+before becoming insignificant at $h = 4$. Exports--GDP is a BVAR channel: significant
+at $h = 1$--$2$ and accounting for 16.4\% of GDP FEVD at $h = 8$. In recursive LP,
+it becomes weak after conditioning on current China GDP growth. Because
+\texttt{china\_gdp}$_t$ and exports are near-collinear, the LP's single-equation
+projection absorbs most identifying variation into the exogenous control, leaving
+the exports coefficient imprecise; the BVAR system estimation partially preserves
+this through joint prior regularisation across equations.
 
-\subsection{Local Projection Robustness}
-\label{sec:lp}
+\paragraph{Inflation dynamics.}
+GDP--CPI transmission is significant and persistent at $h = 1$, $h = 2$, and $h = 4$,
+consistent with standard demand-pull inflation dynamics.
+The CPI equation exhibits a COVID-19 mean break ($p = 0.034$; Section~\ref{sec:stability}),
+so inflation transmission estimates from 2020--2021 carry additional uncertainty.
 
-To confirm that the BVAR impulse responses are not an artefact of the
-Cholesky ordering or the Minnesota prior, we estimate local projections
-\citep{Jorda2005} for each of the four channels. The LP regression at horizon $h$ is
-\begin{equation}
-  y_{t+h} = \alpha_h + \beta_h\, s_t + \boldsymbol{\gamma}_h' \mathbf{w}_t
-            + \varepsilon_{t+h},
-\label{eq:lp}
-\end{equation}
-where $s_t$ is the shock variable, and $\mathbf{w}_t$ includes (i)~four lags
-of all endogenous variables, (ii)~four lags of the exogenous block, and
-(iii)~contemporaneous values of all endogenous variables ordered before $s_t$
-in the Cholesky decomposition. Including the contemporaneous controls in (iii)
-replicates the sequential Cholesky projection by the Frisch-Waugh-Lovell
-theorem, so $\hat{\beta}_h$ recovers the structural impulse response
-rather than a reduced-form innovation response.
-Newey-West HAC standard errors with bandwidth $h + 1$ are used throughout,
-following \citet{MontielOleaPlagborg2021}; this renders inference valid
-under the residual serial correlation documented in Section~\ref{sec:stability}.
+\subsection{GDP Forecast Error Variance Decomposition}
 
-Table~\ref{tab:lp} reports LP estimates alongside the corresponding BVAR
-credibility bounds. Three of four channels are confirmed.
+Table~\ref{tab:fevd} reports the FEVD of GDP growth at an eight-quarter horizon.
+Figure~\ref{fig:fevd} displays the full decomposition for all six equations.
+Figure~\ref{fig:gdp_channels} focuses on the GDP equation.
 
 \begin{table}[htbp]
 \centering
-\caption{LP vs.\ BVAR: Key Channels at $h = 1$ and $h = 2$}
-\label{tab:lp}
-\begin{tabular}{llcccc}
+\caption{Forecast Error Variance Decomposition: GDP Growth at $h = 8$}
+\label{tab:fevd}
+\begin{tabular}{lc}
 \toprule
-Channel & $h$ & LP $\hat{\beta}$ & LP 90\% HAC CI & LP sig. & BVAR sig. \\
+Shock source & Share of GDP variance (\%) \\
 \midrule
-HIBOR $\to$ Property & 1 & $-$3.19 & ($-$4.72,\; $-$1.67) & ** & ** \\
-HIBOR $\to$ GDP      & 1 & $-$1.07 & ($-$1.89,\; $-$0.25) & ** & ** \\
-HIBOR $\to$ GDP      & 2 & $-$1.47 & ($-$2.30,\; $-$0.63) & ** & ** \\
-HIBOR $\to$ GDP      & 3 & $-$1.33 & ($-$2.35,\; $-$0.31) & ** & ** \\
-Exports $\to$ GDP    & 1 & $+$0.05 & ($-$0.01,\; $+$0.10) & $\dagger$ & ** \\
-Property $\to$ GDP   & 1 & $+$0.27 & ($+$0.14,\; $+$0.40) & ** & ** \\
-Property $\to$ GDP   & 2 & $+$0.26 & ($+$0.10,\; $+$0.41) & ** & ** \\
+Property prices       & 20.7 \\
+Exports to China      & 16.4 \\
+HIBOR                 &  8.4 \\
+GDP own $+$ other     & 54.5 \\
+\midrule
+Total                 & 100.0 \\
 \bottomrule
 \end{tabular}
 \begin{minipage}{\linewidth}
 \vspace{4pt}
-\small\textit{Notes:} ** significant at 90\%. $\dagger$ direction confirmed,
-CI lower bound within 0.01 of zero. LP $\hat\beta$ is scaled to a 1 percentage
-point shock; BVAR responses are to a 1 structural standard deviation shock and
-are not directly comparable in magnitude. The exports--GDP channel is
-statistically borderline in LP: the LP estimator is less efficient than the BVAR
-because it forgoes cross-equation shrinkage; the Minnesota prior recovers
-significance on this noisier channel.
+\small\textit{Notes:} BVAR(4), Minnesota prior, HIBOR-first Cholesky ordering.
+FEVD covers endogenous recursive shocks only; external-variable contributions
+(FFR, China GDP) are absorbed into HIBOR and exports own-shocks respectively.
+CPI and unemployment shock contributions are individually small and are grouped
+into the residual row. HIBOR's own-share in its own forecast error variance is
+95\%, consistent with near-mechanical peg dynamics.
 \end{minipage}
 \end{table}
 
-The HIBOR--GDP channel is particularly noteworthy: LP with HAC standard errors
-confirms significance at $h = 1$, $h = 2$, and $h = 3$, directly addressing the
-concern that the BVAR's GDP residual autocorrelation (Section~\ref{sec:stability})
-might invalidate inference. At $h = 4$, the LP coefficient reverses sign
-($\hat\beta = +0.30$, 90\% CI: $[-0.73, +1.33]$), and the BVAR result at that
-horizon should be treated as suggestive: the LP estimator loses power at long
-horizons as the effective sample shrinks and HAC bandwidth grows. The LP
-estimator places no restrictions on the residual covariance structure beyond what
-the HAC correction addresses.
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../output/phase9a_canonical_fevd.png}
+\caption{Forecast Error Variance Decomposition, All Equations}
+\label{fig:fevd}
+\end{figure}
 
-% [INSERT FIGURE: phase10b_lp_irf_4panel.png]
-% \begin{figure}[htbp]
-% \centering
-% \includegraphics[width=\textwidth]{../output/phase10b_lp_irf_4panel.png}
-% \caption{Local Projection vs.\ BVAR Impulse Responses: Four Channels}
-% \label{fig:lp}
-% \end{figure}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{../output/phase10a_gdp_channels.png}
+\caption{GDP Channel Decomposition: Accumulated FEVD by Shock Source}
+\label{fig:gdp_channels}
+\end{figure}
+
+Property shocks dominate GDP variance (20.7\%) despite the HIBOR--property impulse
+response being significant for only one quarter. This reflects the collateral
+amplification mechanism: a property price decline compresses collateral values and
+tightens credit conditions across several subsequent quarters, generating cumulative
+output variance beyond the initial price impact \citep{GoodhartHofmann2008}. The direct trade channel (16.4\%) reflects the dominance of
+mainland China as Hong Kong's primary trading partner. The direct monetary channel
+(8.4\%) is smaller in variance terms but more persistent in impulse response
+dynamics.
 
 % ============================================================
-\section{Robustness}
+\section{Robustness and Diagnostics}
 \label{sec:robustness}
+
+\subsection{Recursive LP Timing Check}
+\label{sec:lp}
+
+Table~\ref{tab:lp} compares LP and BVAR significance for the four domestic
+channels. Three of four channels are confirmed. The HIBOR--property and
+property--GDP channels are consistent across both methods at the key horizons.
+HIBOR--GDP is confirmed at $h = 1$ and $h = 2$; the LP result at $h = 4$ is not
+significant, and the BVAR's $h = 4$ finding should be treated as suggestive.
+Exports--GDP is not significant in LP at any horizon after conditioning on current
+China GDP growth. Figure~\ref{fig:lp} presents the LP estimates alongside BVAR
+credibility bands.
+
+\begin{table}[htbp]
+\centering
+\caption{LP Robustness: Channel Significance at Key Horizons}
+\label{tab:lp}
+\begin{tabular}{llcc}
+\toprule
+Channel & $h$ & LP significant (90\% HAC)? & BVAR significant (90\% CI)? \\
+\midrule
+HIBOR $\to$ Property   & 1 & Yes & Yes \\
+                       & 2 & No  & No  \\
+\addlinespace
+HIBOR $\to$ GDP        & 1 & Yes & Yes \\
+                       & 2 & Yes & Yes \\
+                       & 4 & No  & Yes \\
+\addlinespace
+Exports $\to$ GDP      & 1 & No  & Yes \\
+                       & 2 & No  & Yes \\
+\addlinespace
+Property $\to$ GDP     & 1 & Yes & Yes \\
+                       & 2 & Yes & Yes \\
+\bottomrule
+\end{tabular}
+\begin{minipage}{\linewidth}
+\vspace{4pt}
+\small\textit{Notes:} LP uses the same BVARX information set with contemporaneous
+recursive controls. HAC bandwidth $h + 1$ at each horizon. The exports--GDP channel
+is not significant in LP after conditioning on current China GDP growth; the BVAR
+recovers this channel through cross-equation shrinkage.
+\end{minipage}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../output/phase10b_lp_irf_4panel.png}
+\caption{Local Projection vs.\ BVAR: Impulse Responses for Four Channels}
+\label{fig:lp}
+\end{figure}
 
 \subsection{Structural Stability}
 \label{sec:stability}
 
-Mean-break tests (Welch $t$-test) and variance-shift tests (Levene) on BVAR(4)
-residuals at the global financial crisis (2008~Q3) and COVID-19 (2020~Q1) dates
-find no mean break in the GDP equation ($p = 0.150$ and $p = 0.261$
-respectively). The GDP mean break that appeared under the VARX(1) baseline
-($p = 0.006$ at 2008) disappears under BVAR(4), consistent with
-\citeauthor{Sims1980}'s (\citeyear{Sims1980}) argument that Bayesian shrinkage
-can absorb apparent parameter instability that arises from insufficient lag
-structure. The CPI equation exhibits a statistically significant mean shift at
-COVID-19 ($p = 0.029$), indicating that the disinflationary episode fell outside
-the fixed-coefficient prior's range. Variance shifts at COVID-19 in unemployment
-($p = 0.003$) and HIBOR ($p = 0.038$) are consistent with an unusually large
-shock delivered within an otherwise stable transmission architecture.
+Table~\ref{tab:stability} reports mean break (Welch $t$-test) and variance shift
+(Levene test) results on BVAR(4) residuals at four break dates: SARS (2003~Q2),
+GFC (2008~Q3), China slowdown (2015~Q3), and COVID-19 (2020~Q1). These are proper
+hypothesis tests with null distributions; penalised segmentation algorithms are
+not used.
 
-Ljung-Box portmanteau tests identify residual autocorrelation in the GDP and CPI
-equations. Adding one lag of \texttt{us\_ffr} leaves Ljung-Box statistics
-essentially unchanged (GDP: $p = 0.0001$; CPI: $p = 0.0019$), ruling out
-omitted exogenous lag structure as the source of serial correlation. The
-autocorrelation co-locates with the GFC and COVID-19 windows identified by the
-Chow tests, consistent with episodic structural shocks rather than persistent
-misspecification. This residual autocorrelation does not threaten the LP
-inference in Section~\ref{sec:lp}, which uses HAC standard errors by design.
+SARS 2003 and China 2015 leave no statistical trace in any equation. The GFC
+generates variance shifts in HIBOR ($p = 0.037$) and exports ($p = 0.003$)
+residuals but no GDP mean break ($p = 0.140$). COVID-19 produces a mean break
+in CPI only ($p = 0.034$) and variance shifts in exports ($p = 0.029$) and
+unemployment ($p = 0.002$). GDP shows no mean break at either the GFC or
+COVID-19. The GDP break that appeared under VARX(1) at the GFC ($p = 0.006$)
+disappears under BVAR(4), consistent with Minnesota shrinkage absorbing apparent
+parameter instability from insufficient lag structure.
+
+\begin{table}[htbp]
+\centering
+\caption{Structural Stability Tests on BVAR(4) Residuals}
+\label{tab:stability}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Equation & SARS 2003 & GFC 2008 & China 2015 & COVID 2020 \\
+\midrule
+hibor        & stable & var.\ shift ($p = 0.037$) & stable & stable \\
+exports      & stable & var.\ shift ($p = 0.003$) & stable & var.\ shift ($p = 0.029$) \\
+property     & stable & stable                     & stable & stable \\
+gdp          & stable & stable ($p = 0.140$)       & stable & stable ($p = 0.264$) \\
+cpi          & stable & stable                     & stable & \textbf{mean break} ($p = 0.034$) \\
+unemployment & stable & stable                     & stable & var.\ shift ($p = 0.002$) \\
+\bottomrule
+\end{tabular}
+\begin{minipage}{\linewidth}
+\vspace{4pt}
+\small\textit{Notes:} ``stable'' indicates failure to reject the null of no break
+at the 10\% level. Bold entry marks the one limitation of the fixed-coefficient
+specification. GDP $p$-values shown for the two crisis dates to emphasise the
+absence of a break despite large shocks.
+\end{minipage}
+\end{table}
+
+Figure~\ref{fig:stability} presents the stability diagnostics for GDP and CPI.
+Variance shifts at COVID-19 reflect larger shocks through an otherwise stable
+transmission architecture, not a change in the mechanism itself.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{../output/phase9b_bai_perron_gdp_cpi.png}
+\caption{Structural Stability: Mean and Variance Tests on GDP and CPI Residuals}
+\label{fig:stability}
+\end{figure}
+
+\subsection{Zero Lower Bound Asymmetry}
+\label{sec:zlb}
+
+We test whether HIBOR--property transmission is asymmetric across interest rate
+regimes. Let ZIRP$_t = 1$ if \texttt{us\_ffr}$_t < 0.25\%$, capturing the US
+near-zero rate environment from 2009~Q1 to 2022~Q1 (36 of 113 observations).
+A threshold LP-IRF at $h = 1$ yields:
+\begin{align*}
+  \hat{\beta}_{\text{normal}} &= -2.675 \quad \text{90\% CI: } (-3.826,\; -1.523) \quad \text{[significant]}, \\
+  \hat{\beta}_{\text{ZIRP}}   &= -0.604 \quad \text{90\% CI: } (-7.704,\; +6.496) \quad \text{[not significant]}.
+\end{align*}
+The directional pattern is consistent with impaired property transmission at the
+zero lower bound. The ZIRP estimate is imprecisely estimated given the limited
+subsample; the asymmetry is directionally confirmed but not conclusively established.
 
 \subsection{Unemployment Specification}
 \label{sec:unemp_robust}
 
-Unemployment is retained in levels despite being marginally integrated of order
-one (ADF $p = 0.091$; KPSS $p = 0.010$). Re-estimating with first-differenced
-unemployment ($\Delta u$) leaves the HIBOR--property and exports--GDP channels
-unchanged at $h = 2$ (bands shift by less than 0.1 percentage point, with no
-change in significance). We retain levels to preserve the economic
-interpretation of the unemployment rate and on the basis of
-\citet{SimsStockWatson1990}, who show that standard Bayesian VAR inference
-remains valid in levels even when some variables are integrated, provided the
-system is not cointegrated. Johansen trace and max-eigenvalue tests on the
-confirmed I(1) endogenous variables (unemployment, CPI, and the property price
-level index) find rank zero at the 95\% level, confirming no cointegrating
-relationship and validating the BVAR-in-levels approach.
-
-\subsection{ZLB Asymmetry}
-\label{sec:zlb}
-
-We test whether monetary transmission is asymmetric across interest rate
-regimes. Define ZIRP$_t = 1$ if \texttt{us\_ffr}$_t < 0.25$\%, capturing the
-US near-zero rate environment from 2009~Q1 to 2022~Q1 ($n = 36$ of 113
-observations, 32.1\% of the sample). A threshold LP-IRF at $h = 1$ yields a
-normal-regime coefficient of $\hat{\beta}_{\text{normal}} = -2.675$ (90\% CI:
-$[-3.826, -1.523]$, significant) and a ZIRP-regime coefficient of
-$\hat{\beta}_{\text{ZIRP}} = -0.604$ (90\% CI: $[-7.704, +6.496]$, not significant).
-Results are directionally consistent with impaired transmission at the zero
-lower bound---when the federal funds rate is pinned at the floor, the HIBOR--property
-channel weakens---but are imprecisely estimated given the limited number of
-ZIRP observations. We therefore treat the asymmetry as suggestive rather than
-conclusive.
+Unemployment is retained in levels despite marginal evidence of a unit root
+(ADF $p = 0.091$). Re-estimating with first-differenced unemployment leaves the
+HIBOR--property and exports--GDP channels qualitatively unchanged at $h = 2$,
+with band shifts below 0.1 percentage point and no change in significance.
+We retain the level specification following \citet{SimsStockWatson1990}.
 
 \subsection{Exogenous Lag Sensitivity}
 \label{sec:exog_lag}
 
-The main specification treats exogenous variables as contemporaneous only
-(VARX(4,0)). We test robustness to adding one lag of \texttt{us\_ffr}, producing
-a VARX(4,1) specification with 28 parameters per equation. As noted in
-Section~\ref{sec:stability}, Ljung-Box statistics are unchanged, confirming that
-the diagnostic failures do not reflect omitted lag structure. Impulse responses
-for the HIBOR--property, exports--GDP, and property--GDP channels are stable
-across specifications. The HIBOR--GDP channel at $h = 1$ becomes borderline
-under VARX(4,1) (CI: $[-0.363, +0.011]$) due to mild multicollinearity between
-\texttt{us\_ffr}$_{t-1}$ and the HIBOR lags; the economic direction and
-magnitude are preserved, and the BVAR with HAC-robust LP (Section~\ref{sec:lp})
-confirms significance regardless. We retain VARX(4,0) as the baseline.
+Adding one lag of \texttt{us\_ffr} (VARX(4,1), $k = 28$ parameters per equation)
+leaves Ljung-Box statistics essentially unchanged across GDP and CPI equations.
+Impulse responses for the HIBOR--property, exports--GDP, and property--GDP channels
+are stable across specifications. We retain VARX(4,0) as the baseline.
+
+\subsection{Out-of-Sample Forecast Performance}
+\label{sec:oos}
+
+This is not mainly a forecasting paper. The BVAR(4) is evaluated against VARX(1)
+as model discipline using recursive out-of-sample RMSE ratios (BVAR/VARX1, $< 1$
+indicates BVAR superiority). The BVAR wins in 18 of 18 cells across six variables
+and three horizons ($h \in \{1, 2, 4\}$). Selected ratios: exports at $h = 1$:
+0.813; GDP at $h = 1$: 0.942; CPI at $h = 1$: 0.907. The few $h = 4$ ratios
+above 1.0 are all within 0.02 of parity. Forecast evaluations are conditional:
+realised paths of \texttt{us\_ffr} and \texttt{china\_gdp} are provided over the
+forecast window, consistent with the strict exogeneity assumption.
+
+% ============================================================
+\section{Limitations}
+\label{sec:limitations}
+
+Five limitations bound the scope of inference from this paper.
+
+\paragraph{Recursive identification is order-dependent.}
+All IRF and FEVD results are conditional on the Cholesky ordering HIBOR, exports,
+property, GDP, CPI, unemployment. The LERS mechanism provides unusually strong
+institutional support for placing HIBOR first. The remaining ordering decisions
+are economically motivated but not uniquely determined. Readers who prefer a
+different contemporaneous structure would obtain different channel shares.
+
+\paragraph{\texttt{us\_ffr} is not a structural monetary policy surprise.}
+The model uses the quarterly average federal funds rate as an external
+monetary-conditions variable. This series conflates anticipated and unanticipated
+policy changes, term premium variation, and global risk factors. No Romer-Romer
+or high-frequency identification is applied. Results should be interpreted as
+responses to imported financial conditions under LERS, not to identified US
+monetary policy shocks.
+
+\paragraph{FEVD does not allocate external-variable variance.}
+The FEVD reported in Table~\ref{tab:fevd} covers only the endogenous recursive
+shock decomposition. The contributions of \texttt{us\_ffr} and \texttt{china\_gdp}
+to GDP variance are not directly visible in the FEVD; they are partially absorbed
+into the HIBOR and exports own-shocks respectively. The exogenous dynamic
+multipliers in Section~\ref{sec:results} provide end-to-end external scaling, but
+these are not orthogonal structural decompositions.
+
+\paragraph{GDP and CPI residual autocorrelation remains.}
+Ljung-Box portmanteau tests reject the null of white-noise residuals in the GDP
+and CPI equations. Adding one lag of \texttt{us\_ffr} does not resolve this.
+The autocorrelation co-locates with the GFC and COVID-19 windows, suggesting
+episodic structural instability rather than persistent misspecification. LP
+inference in Section~\ref{sec:lp} is valid under this serial correlation by
+construction (HAC standard errors at bandwidth $h + 1$). BVAR point estimates
+for the affected equations carry additional uncertainty.
+
+\paragraph{Sample spans major structural breaks.}
+The 28-year sample covers the Asian financial crisis aftermath, the GFC, and
+COVID-19. The CPI equation has a confirmed COVID-19 mean break ($p = 0.034$).
+The fixed-coefficient Minnesota prior partially absorbs this through shrinkage
+but cannot fully accommodate discrete regime changes. Inflation transmission
+results from 2020--2021 are unreliable. Future work with a longer post-COVID
+sample could apply time-varying parameter methods to formally assess whether
+the transmission architecture evolved across the 2022--2023 normalisation cycle.
 
 % ============================================================
 \section{Conclusion}
 \label{sec:conclusion}
 
-% ── WHAT TO WRITE HERE ──────────────────────────────────────────────────────
-% 4 paragraphs:
-%
-% Para 1 — Restate question and method (2 sentences)
-%   "This paper estimated... using BVAR(4) over 113 quarters..."
-%
-% Para 2 — Main findings (4–5 sentences)
-%   State the speed asymmetry as the central finding.
-%   State the FEVD hierarchy (property 20.6 > exports 16.5 > HIBOR direct 8.6).
-%   State the LP confirmation.
-%   State the ZLB asymmetry as a suggestive result.
-%
-% Para 3 — Implications (2–3 sentences)
-%   For policy: what does this mean for HK policymakers who cannot adjust rates?
-%   The property channel is the dominant amplifier — macroprudential tools
-%   targeting property market are the effective policy lever.
-%   For external: China growth cycle matters nearly as much as the monetary cycle.
-%
-% Para 4 — Limitations and future work (2–3 sentences)
-%   CPI structural break at COVID.
-%   Nominal exports series.
-%   Future: TVP-VAR when sample grows to ~150 obs; SVAR sign restrictions.
+This paper estimated a BVAR(4) with Minnesota prior on 113 quarterly observations
+of Hong Kong macroeconomic data, using the US federal funds rate and China's GDP
+growth as block-exogenous forcing variables. The institutional features of the
+LERS provide unusually sharp identification for the first step of the Cholesky
+ordering: HIBOR is mechanically determined by the federal funds rate within the
+quarter, validating its position as the most exogenous domestic variable.
 
-This paper examined how external shocks --- US monetary policy tightening and
-China growth slowdowns --- transmit to Hong Kong's real economy under the
-currency board. Using a BVAR(4) with Minnesota prior estimated on 113 quarterly
-observations, we identified two transmission channels operating at different
-speeds.
+The main finding is a speed asymmetry within the monetary transmission channel.
+HIBOR shocks transmit rapidly to property prices within one quarter but the
+property price response is not persistent beyond that horizon. The direct
+HIBOR--GDP link persists through four quarters via credit and mortgage adjustment.
+Property price shocks are the dominant source of GDP variance at an eight-quarter
+horizon (20.7\%), exceeding the direct trade channel (16.4\%) and direct monetary
+channel (8.4\%). Recursive LP with HAC-robust standard errors confirms domestic
+channel timing for three of four channels; the exports--GDP channel is significant
+in the BVAR but weakens in LP after conditioning on current China GDP growth.
+A threshold LP analysis indicates monetary transmission is attenuated in the ZIRP
+regime, though this result is imprecisely estimated.
 
-The central finding is a speed asymmetry within the monetary channel. HIBOR
-shocks reach property prices within one quarter, consistent with the collateral
-channel of \citet{BernankeGertler1989}, but the property price response is
-short-lived. The direct HIBOR--GDP link, by contrast, persists through four
-quarters, reflecting credit costs and mortgage rate adjustments that continue
-to bind after the asset price response has faded. Property price shocks are the
-dominant source of GDP variance (20.6\% at $h = 8$) despite the transient
-impulse response, because property collateral amplifies the credit channel for
-several subsequent periods. Local projections with HAC-robust inference confirm
-all three principal channels: HIBOR--property, HIBOR--GDP, and property--GDP.
-
-For policymakers, the findings highlight that macroprudential tools targeting the
-property market are the most direct lever available to a currency board economy.
-Because Hong Kong cannot adjust the interest rate, and because property price
-shocks account for more GDP variance than either the direct monetary or trade
-channel, policies that dampen property price amplification---loan-to-value caps,
-stamp duty adjustments, and mortgage stress-test requirements---effectively
-attenuate the most important transmission mechanism available. The trade channel
-result implies that countercyclical fiscal policy calibrated to China's growth
-cycle may be more stabilising than policies aimed at the financial market.
-
-Several limitations warrant acknowledgement. First, the interpretation of the
-direct HIBOR--GDP link as a ``credit and mortgage channel'' is an economic label
-applied to a statistical residual: the model contains no credit volume, mortgage
-rate, or loan-to-value data, and the mechanism cannot be formally identified
-within the system. Second, the CPI equation exhibits a structural mean break at
-COVID-19 ($p = 0.029$) that the fixed-coefficient prior does not fully absorb,
-making inflation transmission results from that sub-period unreliable. Third,
-the exports series is nominal; volume effects cannot be separated from price
-effects over the 28-year sample. Fourth, the ZLB asymmetry result is
-directionally consistent with impaired transmission at the zero lower bound but
-is imprecisely estimated ($n = 36$ ZIRP observations) and should be treated as
-exploratory. Future work with a longer sample could exploit time-varying
-parameter methods to formally test whether the transmission architecture evolved
-across the post-COVID normalisation.
+The results highlight that domestic property amplification, not imported rate
+movements directly, is the principal source of GDP forecast error variance in this
+currency board economy. Because property is the largest single source of GDP
+forecast-error variance (20.7\%), macroprudential tools act on the dominant
+domestic variance channel. The trade channel result establishes that China's growth
+cycle is a substantial secondary driver of Hong Kong output variance.
 
 % ============================================================
 \begin{thebibliography}{99}
 
-\bibitem[Bernanke and Gertler(1989)]{BernankeGertler1989}
-Bernanke, B.S. and Gertler, M. (1989).
-\newblock Agency costs, net worth, and business fluctuations.
-\newblock \textit{American Economic Review}, 79(1):14--31.
+\bibitem[Bernanke and Blinder(1992)]{BernankeBlinder1992}
+Bernanke, B.S. and Blinder, A.S. (1992).
+\newblock The federal funds rate and the channels of monetary transmission.
+\newblock \textit{American Economic Review}, 82(4):901--921.
+
+\bibitem[Clarida et al.(1998)]{ClaridaGaliGertler1998}
+Clarida, R., Gal{\'i}, J., and Gertler, M. (1998).
+\newblock Monetary policy rules in practice: Some international evidence.
+\newblock \textit{European Economic Review}, 42(6):1033--1067.
 
 \bibitem[Cushman and Zha(1997)]{CushmanZha1997}
 Cushman, D.O. and Zha, T. (1997).
@@ -741,6 +712,11 @@ Giannone, D., Lenza, M., and Primiceri, G.E. (2015).
 \newblock Prior selection for vector autoregressions.
 \newblock \textit{Review of Economics and Statistics}, 97(2):436--451.
 
+\bibitem[Goodhart and Hofmann(2008)]{GoodhartHofmann2008}
+Goodhart, C. and Hofmann, B. (2008).
+\newblock House prices, money, credit, and the macroeconomy.
+\newblock \textit{Oxford Review of Economic Policy}, 24(1):180--205.
+
 \bibitem[Jord\`{a}(2005)]{Jorda2005}
 Jord\`{a}, \`{O}. (2005).
 \newblock Estimation and inference of impulse responses by local projections.
@@ -751,25 +727,21 @@ Litterman, R.B. (1986).
 \newblock Forecasting with Bayesian vector autoregressions: Five years of experience.
 \newblock \textit{Journal of Business and Economic Statistics}, 4(1):25--38.
 
-\bibitem[Montiel~Olea and Plagborg-M{\o}ller(2021)]{MontielOleaPlagborg2021}
-Montiel~Olea, J.L. and Plagborg-M{\o}ller, M. (2021).
-\newblock Local projection inference is simpler and more robust than you think.
-\newblock \textit{Econometrica}, 89(4):1789--1823.
+\bibitem[Mishkin(1996)]{Mishkin1996}
+Mishkin, F.S. (1996).
+\newblock The channels of monetary transmission: Lessons for monetary policy.
+\newblock \textit{Banque de France Bulletin Digest}, 27:33--44.
 
-\bibitem[Sims(1980)]{Sims1980}
-Sims, C.A. (1980).
-\newblock Macroeconomics and reality.
-\newblock \textit{Econometrica}, 48(1):1--48.
+\bibitem[Ramey and Zubairy(2018)]{RameyZubairy2018}
+Ramey, V.A. and Zubairy, S. (2018).
+\newblock Government spending multipliers in good times and in bad: Evidence
+from US historical data.
+\newblock \textit{Journal of Political Economy}, 126(2):850--901.
 
 \bibitem[Sims et al.(1990)]{SimsStockWatson1990}
 Sims, C.A., Stock, J.H., and Watson, M.W. (1990).
 \newblock Inference in linear time series models with some unit roots.
 \newblock \textit{Econometrica}, 58(1):113--144.
-
-\bibitem[Zha(1999)]{Zha1999}
-Zha, T. (1999).
-\newblock Block recursion and structural vector autoregressions.
-\newblock \textit{Journal of Econometrics}, 90(2):291--316.
 
 \end{thebibliography}
 

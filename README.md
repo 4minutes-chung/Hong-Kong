@@ -6,6 +6,8 @@
 
 ![HIBOR vs US FFR](output/readme_hibor_ffr.png)
 
+![Main BVAR IRFs](output/phase9a_canonical_irf.png)
+
 ![FEVD summary](output/phase9a_canonical_fevd.png)
 
 ![GDP channel IRFs](output/phase10a_gdp_channels.png)
@@ -22,12 +24,23 @@ OOS diagnostic is conditional on realized future `us_ffr` and `china_gdp`.
 
 | Channel | Main estimate | Timing | Read |
 |---|---:|---|---|
-| Property -> GDP | 20.5% of GDP FEVD | h=1-2 | largest GDP variance channel |
-| Exports -> GDP | 16.6% of GDP FEVD | h=1-2 | China demand channel |
-| HIBOR -> GDP | 8.7% of GDP FEVD | h=1-4 | slower direct monetary channel |
+| Property -> GDP | 20.7% of GDP FEVD | h=1-2 | largest GDP variance channel |
+| Exports -> GDP | 16.4% of GDP FEVD | h=1-2 | China demand channel |
+| HIBOR -> GDP | 8.4% of GDP FEVD | h=1-4 | slower direct monetary channel |
 | HIBOR -> property | 12.3% of property FEVD | h=1 | fast rate-to-property pass-through |
 
 Timing = BVAR horizons where 90% posterior bands exclude zero.
+
+---
+
+## Exogenous Dynamic Multipliers
+
+> 1pp shock → HK GDP (pp response). From `exo_irf_can` — not Cholesky FEVD; external variables excluded from endogenous block by construction.
+
+| Shock | h=1 | h=2 | h=4 |
+|---|---:|---:|---:|
+| US FFR → GDP | +0.225 (+: US demand channel; turns negative h=4 as monetary tightening dominates) | −0.024 | −0.199 |
+| China GDP → GDP | +0.216 | +0.128 | −0.004 |
 
 ---
 
@@ -35,8 +48,7 @@ Timing = BVAR horizons where 90% posterior bands exclude zero.
 
 | Check | Result |
 |---|---|
-| Chow tests | GDP stable at GFC/COVID; CPI has COVID mean break |
-| Bai-Perron | 0 residual breaks in all six equations |
+| Welch t & Levene | GDP stable across GFC/COVID; CPI has COVID mean break (p=0.034) |
 | LP-IRF | HIBOR-property, HIBOR-GDP, and property-GDP supported; exports-GDP weaker |
 | Delta-u | Headline channels unchanged |
 | Exogenous lag | `us_ffr_lag1` does not remove GDP/CPI LB failures; keep q=0 |
@@ -51,7 +63,7 @@ Timing = BVAR horizons where 90% posterior bands exclude zero.
 | Sample | 1998Q1-2026Q1, 113 quarters |
 | Model | BVAR(4), Minnesota prior |
 | Exogenous | `us_ffr`, `china_gdp` |
-| Ordering | HIBOR, exports, property, GDP, CPI, unemployment |
+| Ordering | HIBOR → exports → property → GDP → CPI → unemployment |
 
 ---
 
