@@ -36,6 +36,9 @@ Thumbs.db
 # Cursor internal (keep rules)
 .cursor/projects/
 
+# Claude internal
+.claude/
+
 # Session/internal files
 AGENTS.md
 CLAUDE.md
