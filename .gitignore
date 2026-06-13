@@ -13,6 +13,7 @@ build/
 mpl_cfg/
 
 # LaTeX build artifacts
+/paper/
 paper/*.aux
 paper/*.log
 paper/*.bbl
