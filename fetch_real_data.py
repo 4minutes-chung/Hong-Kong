@@ -15,10 +15,7 @@ import json
 import os
 import io
 import warnings
-import numpy as np
 import pandas as pd
-from scipy.interpolate import CubicSpline
-from pandas.errors import EmptyDataError, ParserError
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(DATA_DIR, exist_ok=True)

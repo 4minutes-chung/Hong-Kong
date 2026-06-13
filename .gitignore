@@ -13,18 +13,7 @@ build/
 mpl_cfg/
 
 # LaTeX build artifacts
-/paper/
-paper/*.aux
-paper/*.log
-paper/*.bbl
-paper/*.blg
-paper/*.out
-paper/*.toc
-paper/*.synctex.gz
-paper/*.fdb_latexmk
-paper/*.fls
-paper/*.pdf
-paper/build/
+paper
 
 # OS
 .DS_Store
@@ -35,16 +24,13 @@ Thumbs.db
 .idea/
 
 # Cursor internal (keep rules)
-.cursor/projects/
+.cursor/
 
 # Claude internal
 .claude/
 
 # Session/internal files
-AGENTS.md
 CLAUDE.md
-STUDY_PLAN.md
-PAPER_PROBLEMS.md
 
 # Archive (exploration, old notebooks, reading material)
 archive/
@@ -52,8 +38,6 @@ archive/
 # Old files (now in archive)
 READING_PDF_MD/
 READING_LIST.md
-HANDOFF_*.md
-research_notes_*/
 
 # Misc
 *.bak
