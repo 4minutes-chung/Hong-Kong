@@ -585,20 +585,18 @@ the HAC correction addresses.
 \subsection{Structural Stability}
 \label{sec:stability}
 
-Chow tests on BVAR(4) residuals at the global financial crisis (2008~Q3) and
-COVID-19 (2020~Q1) dates find no mean break in the GDP equation (Welch
-$t$-test $p = 0.150$ and $p = 0.261$ respectively). The GDP mean break that
-appeared under the VARX(1) baseline ($p = 0.006$ at 2008) disappears under
-BVAR(4), consistent with \citeauthor{Sims1980}'s (\citeyear{Sims1980}) argument
-that Bayesian shrinkage can absorb apparent parameter instability that arises
-from insufficient lag structure. The CPI equation exhibits a statistically
-significant mean shift at COVID-19 ($p = 0.029$), indicating that the
-disinflationary episode fell outside the fixed-coefficient prior's range.
-Bai-Perron blind-search tests (PELT algorithm, conservative 3$\times$BIC
-penalty) identify zero structural breaks in all six endogenous residuals.
-Variance shifts at COVID-19 in unemployment ($p = 0.003$) and HIBOR
-($p = 0.038$) are consistent with an unusually large shock delivered within an
-otherwise stable transmission architecture.
+Mean-break tests (Welch $t$-test) and variance-shift tests (Levene) on BVAR(4)
+residuals at the global financial crisis (2008~Q3) and COVID-19 (2020~Q1) dates
+find no mean break in the GDP equation ($p = 0.150$ and $p = 0.261$
+respectively). The GDP mean break that appeared under the VARX(1) baseline
+($p = 0.006$ at 2008) disappears under BVAR(4), consistent with
+\citeauthor{Sims1980}'s (\citeyear{Sims1980}) argument that Bayesian shrinkage
+can absorb apparent parameter instability that arises from insufficient lag
+structure. The CPI equation exhibits a statistically significant mean shift at
+COVID-19 ($p = 0.029$), indicating that the disinflationary episode fell outside
+the fixed-coefficient prior's range. Variance shifts at COVID-19 in unemployment
+($p = 0.003$) and HIBOR ($p = 0.038$) are consistent with an unusually large
+shock delivered within an otherwise stable transmission architecture.
 
 Ljung-Box portmanteau tests identify residual autocorrelation in the GDP and CPI
 equations. Adding one lag of \texttt{us\_ffr} leaves Ljung-Box statistics

@@ -2,7 +2,7 @@
 Fetch HK macro data from official sources and produce the model-ready dataset.
 
 Output: data/hk_macro_varx_ready.csv
-  - 8 columns: us_ffr, china_gdp, hibor_3m, hk_exports_china_yoy,
+  - 9 columns: us_ffr, china_gdp, hibor_3m, hk_exports_china_yoy,
                gdp_growth, cpi_inflation, unemployment,
                hk_property_price_qoq (+ hk_property_price_idx as level)
   - Quarterly, 1998 Q1 onwards
@@ -12,9 +12,9 @@ Output: data/hk_macro_varx_ready.csv
 import urllib.request
 import urllib.error
 import json
-import ssl
 import os
 import io
+import warnings
 import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline
@@ -27,16 +27,9 @@ _HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 PROPERTY_PRICE_URL = "https://www.rvd.gov.hk/datagovhk/1.4M.csv"
 
 
-def _ssl_context():
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
-
-
 def _fetch_json(url):
     req = urllib.request.Request(url, headers=_HEADERS)
-    with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:
         return json.loads(resp.read())
 
 
@@ -120,9 +113,16 @@ def fetch_hibor_3m():
         df = df.resample("QS").mean().dropna()
         df.to_csv(cache, float_format="%.4f")
         return df
-    except Exception:
+    except Exception as exc:
         if os.path.exists(cache):
-            return pd.read_csv(cache, index_col="date", parse_dates=True)
+            cached = pd.read_csv(cache, index_col="date", parse_dates=True)
+            warnings.warn(
+                f"HKMA API failed ({type(exc).__name__}); using cached HIBOR data "
+                f"through {cached.index.max().date()}: {cache}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return cached
         raise RuntimeError("HKMA API failed and no cache found. Run once with internet access.")
 
 
@@ -144,7 +144,7 @@ def fetch_china_gdp():
         "?startTime=1998-Q1&endTime=2030-Q4"
     )
     req = urllib.request.Request(url, headers=_HEADERS)
-    with urllib.request.urlopen(req, timeout=45, context=_ssl_context()) as resp:
+    with urllib.request.urlopen(req, timeout=45) as resp:
         d = json.loads(resp.read())
 
     ds = d["data"]["dataSets"][0]["series"]
@@ -235,9 +235,16 @@ def fetch_hk_exports_china():
         df = df.resample("QS").mean().dropna()
         df.to_csv(cache, float_format="%.4f")
         return df
-    except Exception:
+    except Exception as exc:
         if os.path.exists(cache):
-            return pd.read_csv(cache, index_col="date", parse_dates=True).resample("QS").mean().dropna()
+            cached = pd.read_csv(cache, index_col="date", parse_dates=True).resample("QS").mean().dropna()
+            warnings.warn(
+                f"C&SD exports API failed ({type(exc).__name__}); using cached exports data "
+                f"through {cached.index.max().date()}: {cache}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return cached
         raise RuntimeError("C&SD exports API failed and no cache found.")
 
 
@@ -245,7 +252,7 @@ def fetch_hk_property():
     """RVD/data.gov.hk: property price index, monthly -> quarterly mean + QoQ transform."""
     csv_text_raw = urllib.request.urlopen(
         urllib.request.Request(PROPERTY_PRICE_URL, headers={"User-Agent": "Mozilla/5.0"}),
-        timeout=45, context=_ssl_context()
+        timeout=45
     ).read().decode("utf-8-sig", errors="ignore")
 
     raw = pd.read_csv(io.StringIO(csv_text_raw), header=1)

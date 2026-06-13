@@ -1,79 +1,66 @@
 # Data Source Reference
 
-**Project:** Hong Kong BVAR — Monetary and China Growth Transmission  
-**Model:** BVAR(4) Minnesota prior, HIBOR-first Cholesky ordering  
-**Sample:** 1998 Q1 – 2026 Q1 | 113 quarterly observations  
-**Model-ready file:** `data/hk_macro_varx_ready.csv`
+**Project:** Hong Kong External Shock Transmission under LERS  
+**Model-ready file:** `data/hk_macro_varx_ready.csv`  
+**Sample:** 1998 Q1 to 2026 Q1, 113 quarterly observations  
+**Frequency:** Quarterly
 
 ---
 
 ## Variable Dictionary
 
-### Exogenous — HK cannot influence these
+### Exogenous
 
-| Variable | Form | Units | Source | Notes |
+| Variable | Form | Units | Source | Construction |
 |---|---|---|---|---|
-| `us_ffr` | Level | % p.a. | FRED `FEDFUNDS` | Monthly → quarterly mean |
-| `china_gdp` | YoY % | % | OECD QNA `CHN.B1_GE.GPSA.Q` | GY transform applied |
+| `us_ffr` | Level | % p.a. | FRED `FEDFUNDS` | Monthly average to quarterly |
+| `china_gdp` | YoY growth | % | OECD QNA `CHN.B1_GE.GPSA.Q` | Quarterly series |
 
-### Endogenous — HK domestic system
+### Endogenous
 
-| Variable | Form | Units | Source | Notes |
+| Variable | Form | Units | Source | Construction |
 |---|---|---|---|---|
-| `hibor_3m` | Level | % p.a. | HKMA hibor.fixing | Monthly → quarterly mean. |
-| `hk_exports_china_yoy` | YoY % | % | C&SD table 410-50013 | Monthly YoY → quarterly mean. Nominal HKD: no reliable quarterly export price deflator |
-| `hk_property_price_qoq` | QoQ % | % | RVD All Classes index | Monthly → quarterly mean, then QoQ % change. Recent quarters marked "P" (provisional) by RVD |
-| `gdp_growth` | YoY % | % | C&SD table 310-30001 | Real GDP of HONG KONG chain-linked volume |
-| `cpi_inflation` | YoY % | % | C&SD table 510-60001 | Composite CPI, monthly → quarterly mean of inflation rate |
-| `unemployment` | Level | % | C&SD table 210-06101 | M3M seasonally adjusted → quarterly end-of-quarter |
+| `hibor_3m` | Level | % p.a. | HKMA HIBOR fixing | Monthly average to quarterly |
+| `hk_exports_china_yoy` | YoY growth | % | C&SD table 410-50013 | Monthly average to quarterly |
+| `hk_property_price_qoq` | QoQ growth | % | RVD All Classes index | Quarterly mean index, then QoQ percent change |
+| `gdp_growth` | YoY growth | % | C&SD table 310-30001 | Quarterly series |
+| `cpi_inflation` | YoY inflation | % | C&SD table 510-60001 | Monthly average to quarterly |
+| `unemployment` | Level | % | C&SD table 210-06101 | Seasonally adjusted M3M, quarter end |
 
----
+### Diagnostic only
 
-## Why These Transforms
-
-| Variable | Raw form | Used form | Reason |
+| Variable | Form | Source | Use |
 |---|---|---|---|
-| Property price | Level index I(1) | QoQ % I(0) | Level has unit root (ADF p=0.822); QoQ is stationary (p=0.000) |
-| GDP | Level | YoY % | Standard HK official release form; stationary |
-| HIBOR | Level | Level | Mean-reverts under LERS peg; I(0) confirmed |
-| Unemployment | Level | Level | Mean-reverting over full sample; marginally I(1) |
-| Exports | Level | YoY % | Standard trade reporting form; stationary |
-| CPI | Level | YoY % | Standard inflation reporting form; marginally I(1)|
+| `hk_property_price_idx` | Level index | RVD All Classes index | Stationarity and Johansen checks only |
 
 ---
 
-## Variables Considered and Dropped
+## Stationarity Audit
 
-| Variable | Reason dropped |
-|---|---|
-| `hk_property_price_idx` | I(1) level -> replaced with QoQ |
-| `hk_property_price_yoy` | YoY has base-effect distortions from 1997–98 crash; QoQ cleaner |
-| `hk_property_price_qoq_ann` | Annualised QoQ — redundant |
-| `property_class_a/b/c/d/e` | Sub-class indices — aggregate used |
-| `us_mp_shock_quarterly.csv` | Romer-Romer monetary policy shock series, not incorporated |
-| BIS Locational Banking Statistics | China counterparty series suppressed pre-2014 —> financial channel unmodelled |
+ADF/KPSS results on the current panel:
 
----
-
-## Stationarity Results (ADF + KPSS, n=113)
-
-| Variable | ADF p | KPSS p | Verdict |
-|---|---|---|---|
+| Variable | ADF p | KPSS p | Read |
+|---|---:|---:|---|
 | `hk_exports_china_yoy` | 0.000 | 0.100 | I(0) |
 | `gdp_growth` | 0.018 | 0.100 | I(0) |
-| `hibor_3m` | 0.000 | 0.045 | I(0) / ambiguous |
+| `hibor_3m` | 0.000 | 0.045 | I(0) / borderline |
 | `hk_property_price_qoq` | 0.000 | 0.099 | I(0) |
-| `cpi_inflation` | 0.171 | 0.016 | I(1) |
-| `unemployment` | 0.091 | 0.010 | I(1) |
+| `cpi_inflation` | 0.171 | 0.016 | I(1)-like |
+| `unemployment` | 0.091 | 0.010 | I(1)-like |
+| `hk_property_price_idx` | 0.821 | 0.010 | I(1) |
 
-I(1) endogenous variables: unemployment, cpi_inflation. Both enter the BVAR in levels; Minnesota shrinkage handles the near-unit-root behaviour without differencing. Johansen trace and max-eigenvalue tests (endogenous I(1) block only) find rank=0 — no cointegrating relationship; VECM not warranted.
+Johansen tests use only the endogenous I(1) block:
+`hk_property_price_idx`, `cpi_inflation`, and `unemployment`, which give rank 0
+at 95%, so VECM is not used.
 
 ---
 
-## Known Data Limitations
+## Notes and Limitations
 
-1. `hk_exports_china_yoy` is nominal — no quarterly export price deflator available.
-2. `us_ffr` is a monetary-conditions proxy, not a clean monetary policy surprise.
-3. Post-2010 China–HK financial transmission (mainly linkage, Stock Connect, mainland property buyers) is unmodelled, as no suitable series available back to 1998.
-4. CPI equation shows a mean break at COVID-19 (Chow test p=0.029): disinflationary episode not fully absorbed by fixed-coefficient BVAR prior.
-5. 1998 Q1 start date is regime-justified (post-handover), not instrument-forced. HIBOR panel is continuous across 1997.
+- `hk_exports_china_yoy` is nominal; no reliable full-sample quarterly export price deflator.
+- `us_ffr` is a monetary-conditions proxy, not a policy-surprise series.
+- `hk_property_price_qoq` is the BVAR property variable built from `hk_property_price_idx`.
+- `unemployment` is kept in levels; delta-u robustness is in the exploration notebook.
+- The baseline file keeps only contemporaneous `us_ffr` and `china_gdp`; lag checks are in the exploration notebook.
+- China-Hong Kong financial integration after 2010 is not directly modelled: data limitation.
+- The 1998 Q1 start is a regime choice due to handover of 1997, not a data constraint.

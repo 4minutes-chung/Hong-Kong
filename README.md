@@ -1,95 +1,57 @@
-# HK Monetary Transmission — BVAR(4) Evidence
+# Hong Kong External Shock Transmission under LERS
 
-> How do US monetary policy and China growth shocks transmit to Hong Kong GDP under the currency board?
-> **1998Q1–2026Q1 | 113 quarters | BVAR(4) Minnesota prior | Cholesky identification**
+> 1998Q1-2026Q1 | 113 quarters | BVAR(4), Minnesota prior | HIBOR-first Cholesky ordering
+
+## Figures
 
 ![HIBOR vs US FFR](output/readme_hibor_ffr.png)
 
----
+![FEVD summary](output/phase9a_canonical_fevd.png)
 
-## Transmission Channels
+![GDP channel IRFs](output/phase10a_gdp_channels.png)
 
-```
-US FFR ──→ HIBOR ──┬──→ PROPERTY ──→ ┐
-                   │                  ├──→ GDP
-                   └──────────────────┘  (direct credit/mortgage)
+![LP IRFs vs BVAR IRFs](output/phase10b_lp_irf_4panel.png)
 
-CHINA GDP ──→ EXPORTS ──────────────────→ GDP
-```
+![Conditional OOS RMSE benchmarks](output/oos_rmse_benchmarks.png)
+
+OOS diagnostic is conditional on realized future `us_ffr` and `china_gdp`.
 
 ---
 
-## GDP Variance Decomposition (FEVD, h=8)
+## Main Results
 
-```
-property → GDP  ████████████████████░░░░░░░░░░  20.6%  ← dominant driver
-exports  → GDP  ████████████████░░░░░░░░░░░░░░  16.5%
-hibor    → GDP  ████████░░░░░░░░░░░░░░░░░░░░░░   8.6%
-```
+| Channel | Main estimate | Timing | Read |
+|---|---:|---|---|
+| Property -> GDP | 20.5% of GDP FEVD | h=1-2 | largest GDP variance channel |
+| Exports -> GDP | 16.6% of GDP FEVD | h=1-2 | China demand channel |
+| HIBOR -> GDP | 8.7% of GDP FEVD | h=1-4 | slower direct monetary channel |
+| HIBOR -> property | 12.3% of property FEVD | h=1 | fast rate-to-property pass-through |
 
----
-
-## IRF Significance Map (90% credibility bands)
-
-```
-              h=1    h=2    h=4
-hibor → prop   ●      ○      ○     fast, fades after h=1
-hibor → gdp    ●      ●      ●     persistent through h=4
-prop  → gdp    ●      ●      ○     amplifies h=1–2
-exp   → gdp    ●      ●      ○     robust at h=1–2
-
-●  significant (CI excludes zero)
-○  CI crosses zero
-```
-
----
-
-## Speed Asymmetry Within Channel 1
-
-```
-         h=1    h=2    h=4    h=8
-prop     [●]    [○]    [○]    [○]   hits hard, fades
-credit   [●]    [●]    [●]    [○]   sustained via mortgage/investment
-```
-
-Property is the primary GDP variance amplifier (20.6% FEVD).  
-Direct credit channel outlasts it — that's the persistence.
-
----
-
-## ZLB Asymmetry (HIBOR → Property)
-
-```
-Normal rate environment  (FFR ≥ 0.25%)   β = −2.68  ✓  significant
-ZIRP                     (FFR < 0.25%)   β = −0.60  ✗  CI spans zero
-
-2009Q1–2022Q1: 36/113 obs at zero bound
-```
-
-Monetary transmission impaired when rates are pinned at floor.
-
----
-
-## Model
-
-BVAR(4), Minnesota prior, ML-optimised hyperparameters. Cholesky ordering: hibor → exports → property → gdp → cpi → unemployment. Exogenous: us\_ffr, china\_gdp (contemporaneous). OOS RMSE: BVAR wins 18/18 cells vs VARX(1). Full specification in `paper/main.tex` §3.
-
-![OOS RMSE Heatmap](output/readme_oos_rmse.png)
+Timing = BVAR horizons where 90% posterior bands exclude zero.
 
 ---
 
 ## Robustness
 
-```
-Structural stability   Chow GDP 2008 p=0.15 ✓   GDP 2020 p=0.26 ✓
-                       CPI COVID mean break p=0.03  (acknowledged)
-                       Bai-Perron: 0 breaks in all variables ✓
+| Check | Result |
+|---|---|
+| Chow tests | GDP stable at GFC/COVID; CPI has COVID mean break |
+| Bai-Perron | 0 residual breaks in all six equations |
+| LP-IRF | HIBOR-property, HIBOR-GDP, and property-GDP supported; exports-GDP weaker |
+| Delta-u | Headline channels unchanged |
+| Exogenous lag | `us_ffr_lag1` does not remove GDP/CPI LB failures; keep q=0 |
+| Johansen | Rank 0 on endogenous I(1) block; VECM not used |
 
-LP-IRF (Jordà 2005)    3 channels strong, exports→GDP borderline, HAC SEs ✓
-Δu robustness          headline IRFs unchanged with Δunemployment ✓
-FFR lag sensitivity    VARX(4,1) LB unchanged, keep q=0 ✓
-Johansen rank=0        VECM not warranted ✓
-```
+---
+
+## Model
+
+| Item | Choice |
+|---|---|
+| Sample | 1998Q1-2026Q1, 113 quarters |
+| Model | BVAR(4), Minnesota prior |
+| Exogenous | `us_ffr`, `china_gdp` |
+| Ordering | HIBOR, exports, property, GDP, CPI, unemployment |
 
 ---
 
@@ -97,11 +59,11 @@ Johansen rank=0        VECM not warranted ✓
 
 | File | Role |
 |---|---|
-| `HK_BVAR_Final.ipynb` | Canonical — all results, 6 sections |
-| `HK_BVAR_Exploration.ipynb` | Baseline development, model selection, robustness checks |
+| `HK_BVAR_Final.ipynb` | Canonical result notebook |
+| `HK_BVAR_Exploration.ipynb` | Baseline development and supplementary checks |
 | `fetch_real_data.py` | Rebuild data from APIs |
+| `data_source.md` | Data sources and stationarity audit |
 | `paper/main.tex` | Paper draft |
-| `data_source.md` | Variable definitions and stationarity results |
 
 ---
 
@@ -109,5 +71,4 @@ Johansen rank=0        VECM not warranted ✓
 
 ```bash
 python fetch_real_data.py
-# → data/hk_macro_varx_ready.csv
 ```
