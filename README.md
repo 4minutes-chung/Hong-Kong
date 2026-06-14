@@ -35,7 +35,8 @@ Timing = BVAR horizons where 90% posterior bands exclude zero.
 
 ## Exogenous Dynamic Multipliers
 
-> 1pp shock → HK GDP (pp response). From `exo_irf_can` — not Cholesky FEVD; external variables excluded from endogenous block by construction.
+- 1pp shock → HK GDP (pp response). 
+- From `exo_irf_can` rather than Cholesky FEVD asexternal variables excluded from endogenous block by construction.
 
 | Shock | h=1 | h=2 | h=4 |
 |---|---:|---:|---:|
