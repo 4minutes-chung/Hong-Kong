@@ -75,7 +75,6 @@ Timing = BVAR horizons where 90% posterior bands exclude zero.
 | `HK_BVAR_Exploration.ipynb` | Baseline development and supplementary checks |
 | `fetch_real_data.py` | Rebuild data from APIs |
 | `data_source.md` | Data sources and stationarity audit |
-| `paper/main.tex` | Paper draft |
 
 ---
 
