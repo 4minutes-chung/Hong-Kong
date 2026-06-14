@@ -3,7 +3,7 @@
 **Project:** Hong Kong External Shock Transmission under LERS  
 **Model-ready file:** `data/hk_macro_varx_ready.csv`  
 **Sample:** 1998 Q1 to 2026 Q1, 113 quarterly observations  
-**Frequency:** Quarterly
+**Frequency:** Quarterly 
 
 ---
 
@@ -57,10 +57,10 @@ at 95%, so VECM is not used.
 
 ## Notes and Limitations
 
-- `hk_exports_china_yoy` is nominal; no reliable full-sample quarterly export price deflator.
-- `us_ffr` is a monetary-conditions proxy, not a policy-surprise series.
-- `hk_property_price_qoq` is the BVAR property variable built from `hk_property_price_idx`.
-- `unemployment` is kept in levels; delta-u robustness is in the exploration notebook.
+- `hk_exports_china_yoy` is nominal, as there is not reliable full-sample quarterly export price deflator.
+- `us_ffr` is a monetary-conditions proxy, which is not a exogenous/surprise series.
+- `hk_property_price_qoq` is the BVAR property variable transformed from `hk_property_price_idx`.
+- `unemployment` is kept in levels; robustness check for using change in unemployment rate is in the exploration notebook.
 - The baseline file keeps only contemporaneous `us_ffr` and `china_gdp`; lag checks are in the exploration notebook.
-- China-Hong Kong financial integration after 2010 is not directly modelled: data limitation.
-- The 1998 Q1 start is a regime choice due to handover of 1997, not a data constraint.
+- China-Hong Kong financial integration after 2010 is not directly modelled due to data limitation: relevant data are not available.
+- The 1998 Q1 start is a regime choice due to handover of 1997, rather than a data constraint.
