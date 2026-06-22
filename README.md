@@ -53,7 +53,8 @@ Timing = BVAR horizons where 90% posterior bands exclude zero.
 | LP-IRF | HIBOR-property, HIBOR-GDP, and property-GDP supported; exports-GDP weaker |
 | Delta-u | Headline channels unchanged |
 | Exogenous lag | `us_ffr_lag1` does not remove GDP/CPI LB failures; keep q=0 |
-| Johansen | Rank 0 on endogenous I(1) block; VECM not used |
+| Johansen | Rank 0 on endogenous I(1) block (cpi, unemployment, property level); VECM not used |
+| Stationarity | exports, gdp, property QoQ: I(0); cpi, unemployment, property level: I(1); hibor: ambiguous (ADF p=0.037, KPSS p=0.050, enters levels on economic grounds) |
 
 ---
 

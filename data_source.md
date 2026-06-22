@@ -37,21 +37,26 @@
 
 ## Stationarity Audit
 
-ADF/KPSS results on the current panel:
+ADF/KPSS results on the current panel (updated 2026-06-20):
 
-| Variable | ADF p | KPSS p | Read |
+| Variable | ADF p | KPSS p | Verdict |
 |---|---:|---:|---|
-| `hk_exports_china_yoy` | 0.000 | 0.100 | I(0) |
-| `gdp_growth` | 0.018 | 0.100 | I(0) |
-| `hibor_3m` | 0.000 | 0.045 | I(0) / borderline |
-| `hk_property_price_qoq` | 0.000 | 0.099 | I(0) |
-| `cpi_inflation` | 0.171 | 0.016 | I(1)-like |
-| `unemployment` | 0.091 | 0.010 | I(1)-like |
-| `hk_property_price_idx` | 0.821 | 0.010 | I(1) |
+| `hk_exports_china_yoy` | 0.0000 | 0.1000 | I(0) |
+| `gdp_growth` | 0.0161 | 0.1000 | I(0) |
+| `hk_property_price_qoq` | 0.0000 | 0.0830 | I(0) |
+| `hibor_3m` | 0.0368 | 0.0495 | ambiguous |
+| `cpi_inflation` | 0.1526 | 0.0202 | I(1) |
+| `unemployment` | 0.0821 | 0.0100 | I(1) |
+| `hk_property_price_idx` | 0.8222 | 0.0100 | I(1) |
 
 Johansen tests use only the endogenous I(1) block:
-`hk_property_price_idx`, `cpi_inflation`, and `unemployment`, which give rank 0
+`cpi_inflation`, `unemployment`, and `hk_property_price_idx`, which give rank 0
 at 95%, so VECM is not used.
+
+`hibor_3m` enters in levels — ADF rejects at 5% but KPSS also rejects at 5%,
+giving ambiguous statistical result. Economic rationale: mean-reverting under
+the peg. Robustness check with first-differenced HIBOR leaves headline channels
+unchanged (see exploration notebook).
 
 ---
 
