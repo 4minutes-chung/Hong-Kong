@@ -41,8 +41,8 @@ Timing = BVAR horizons where 90% posterior bands exclude zero.
 
 | Shock | h=1 | h=2 | h=4 |
 |---|---:|---:|---:|
-| US FFR → GDP | +0.225 | −0.024 | −0.199 |
-| China GDP → GDP | +0.216 | +0.128 | −0.004 |
+| US FFR → GDP | +0.224 | −0.024 | −0.196 |
+| China GDP → GDP | +0.219 | +0.131 | −0.004 |
 
 ---
 
