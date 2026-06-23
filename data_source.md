@@ -7,7 +7,7 @@
 
 ---
 
-## Variable Dictionary
+## Data Series
 
 ### Exogenous
 
@@ -53,19 +53,21 @@ Johansen tests use only the endogenous I(1) block:
 `cpi_inflation`, `unemployment`, and `hk_property_price_idx`, which give rank 0
 at 95%, so VECM is not used.
 
-`hibor_3m` enters in levels — ADF rejects at 5% but KPSS also rejects at 5%,
-giving ambiguous statistical result. Economic rationale: mean-reverting under
-the peg. Robustness check with first-differenced HIBOR leaves headline channels
+`hibor_3m` enters in levels. 
+ADF rejects at 5% but KPSS also rejects at 5%,
+giving ambiguous statistical result. 
+Economic rationale: it should be mean-reverting under the peg. 
+Robustness check with first-differenced HIBOR leaves headline channels
 unchanged (see exploration notebook).
 
 ---
 
 ## Notes and Limitations
 
-- `hk_exports_china_yoy` is nominal, as there is not reliable full-sample quarterly export price deflator.
-- `us_ffr` is a monetary-conditions proxy, which is not a exogenous/surprise series.
+- `hk_exports_china_yoy` is nominal, as there is no reliable full-sample quarterly export price deflator.
+- `us_ffr` is a monetary-conditions proxy, not an exogenous monetary surprise series.
 - `hk_property_price_qoq` is the BVAR property variable transformed from `hk_property_price_idx`.
 - `unemployment` is kept in levels; robustness check for using change in unemployment rate is in the exploration notebook.
 - The baseline file keeps only contemporaneous `us_ffr` and `china_gdp`; lag checks are in the exploration notebook.
-- China-Hong Kong financial integration after 2010 is not directly modelled due to data limitation: relevant data are not available.
-- The 1998 Q1 start is a regime choice due to handover of 1997, rather than a data constraint.
+- China-Hong Kong financial integration after 2010 is not directly modelled because no suitable full-sample quarterly series was available.
+- The 1998 Q1 start is a regime choice tied to the 1997 handover, rather than a data constraint.

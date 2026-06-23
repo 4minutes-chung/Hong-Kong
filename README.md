@@ -36,11 +36,12 @@ Timing = BVAR horizons where 90% posterior bands exclude zero.
 ## Exogenous Dynamic Multipliers
 
 - 1pp shock → HK GDP (pp response). 
-- From `exo_irf_can` rather than Cholesky FEVD asexternal variables excluded from endogenous block by construction.
+- From `exo_irf_can` rather than Cholesky FEVD.
+- US FFR → GDP: h=1 is positive due to US demand channel; turns negative h=4 as monetary tightening dominates
 
 | Shock | h=1 | h=2 | h=4 |
 |---|---:|---:|---:|
-| US FFR → GDP | +0.225 (+: US demand channel; turns negative h=4 as monetary tightening dominates) | −0.024 | −0.199 |
+| US FFR → GDP | +0.225 | −0.024 | −0.199 |
 | China GDP → GDP | +0.216 | +0.128 | −0.004 |
 
 ---
@@ -63,7 +64,7 @@ Timing = BVAR horizons where 90% posterior bands exclude zero.
 | Item | Choice |
 |---|---|
 | Sample | 1998Q1-2026Q1, 113 quarters |
-| Model | BVAR(4), Minnesota prior |
+| Model | BVARX(4), Minnesota prior |
 | Exogenous | `us_ffr`, `china_gdp` |
 | Ordering | HIBOR → exports → property → GDP → CPI → unemployment |
 
